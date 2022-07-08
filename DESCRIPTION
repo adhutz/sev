@@ -8,6 +8,5 @@ Description: View summarized experiment files via iSEE and iSEEu with additional
 License: Artistic-2.0
 Encoding: UTF-8
 LazyData: false
-import: SummarizedExperiment,BiocGenerics,tibble,shiny,shinydashboard,S4Vectors,rentrez,dplyr
-Depends: iSEE, iSEEu, DEP
+import: SummarizedExperiment,BiocGenerics,tibble,shiny,shinydashboard,S4Vectors,rentrez,dplyr,iSEE,iSEEu,DEP
 RoxygenNote: 7.2.0

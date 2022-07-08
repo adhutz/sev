@@ -8,7 +8,7 @@ rst <- RowDataTable(PanelWidth = 12L)
 #'
 #' @param se_name Name of summarized experiment
 #'
-#' @return an iSEE app
+#' @return Returns an iSEE object
 #' @export
 #'
 #' @examples
@@ -41,3 +41,4 @@ list_data <- function() {
   gsub(".rds","",list.files("data"))
 }
 
+sev::isee_data()

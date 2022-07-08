@@ -51,4 +51,3 @@ sev_depend <- function(){
   BiocManager::install("iSEE")
   BiocManager::install("iSEEu")
 }
-

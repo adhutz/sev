@@ -7,7 +7,7 @@ Maintainer: Arvid Hutzfeldt <a.hutzfeldt@uke.de>
 Description: View summarized experiment files via iSEE and iSEEu with additional containers.
 License: Artistic-2.0
 Encoding: UTF-8
-LazyData: false
+LazyData: true
 RoxygenNote: 7.2.0
 Imports: 
     BiocGenerics,
@@ -21,3 +21,5 @@ Imports:
     tibble
 Depends: 
     R (>= 2.10)
+
+

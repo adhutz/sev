@@ -1,6 +1,5 @@
 import(BiocGenerics)
 import(SummarizedExperiment)
-import(iSEE)
 import(tibble)
 import(DEP)
 import(shiny)
@@ -12,3 +11,4 @@ import(dplyr)
 export(isee_data)
 export(isee_mini)
 export(list_data)
+

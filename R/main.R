@@ -14,7 +14,7 @@ rst <- RowDataTable(PanelWidth = 12L)
 #' @examples
 #' isee_data("test") ## runs iSEE to explore the selected dataset
 isee_data <- function(se_name = "test") {
-   iSEE(readRDS(paste0("data/", se_name, ".rds")))
+   iSEE::iSEE(readRDS(paste0("data/", se_name, ".rds")))
 }
 
 #' Title
@@ -24,7 +24,7 @@ isee_data <- function(se_name = "test") {
 #' @return an iSEE app
 #' @export
 isee_mini <- function(se) {
-  iSEE(se, initial=list(got, rst, VolcanoPlot(PanelWidth=6L), gat, FeatureSetTable(PanelWidth=6L)))
+  iSEE::iSEE(se, initial=list(got, rst, VolcanoPlot(PanelWidth=6L), gat, FeatureSetTable(PanelWidth=6L)))
 }
 
 

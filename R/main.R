@@ -3,9 +3,8 @@ gat<-GeneAnnoTable(PanelWidth=8L)
 got<-GOTable(PanelWidth=8L)
 rst <- RowDataTable(PanelWidth = 12L)
 
-#' Explore exemplary summarized experiments
+#' Explore summarized experiments
 #' Datasets collected in the data folder of the github repo are available.
-#' Run list_data() to see a list of all available datasets.
 #'
 #' @param se_name Name of summarized experiment
 #'
@@ -15,9 +14,9 @@ rst <- RowDataTable(PanelWidth = 12L)
 #' @export
 #'
 #' @examples
-#' isee_data("test") ## runs iSEE to explore the selected dataset
-isee_data <- function(se_name = "test") {
-  iSEE::iSEE(readRDS(paste0("data/", se_name, ".rds")))
+#' isee_data(se = sev::data(test)) ## runs iSEE to explore the selected test dataset
+isee_data <- function(se) {
+  iSEE::iSEE(se)
 }
 
 #' Explores your own summarized experiment
@@ -52,3 +51,4 @@ sev_depend <- function(){
   BiocManager::install("iSEE")
   BiocManager::install("iSEEu")
 }
+

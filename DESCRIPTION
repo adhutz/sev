@@ -1,11 +1,11 @@
 Package: sev
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Explore MS data
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Author: Arvid Hutzfeldt
+Maintainer: Arvid Hutzfeldt <a.hutzfeldt@uke.de>
+Description: View summarized experiment files via iSEE and iSEEu with additional containers.
+License: Artistic-2.0
 Encoding: UTF-8
-LazyData: true
+LazyData: false
+import: SummarizedExperiment,iSEE,iSEEu,BiocGenerics,tibble,DEP,shiny,shinydashboard,S4Vectors,rentrez,dplyr

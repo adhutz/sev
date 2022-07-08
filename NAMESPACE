@@ -8,3 +8,7 @@ import(shinydashboard)
 import(S4Vectors)
 import(rentrez)
 import(dplyr)
+
+export(isee_data)
+export(isee_mini)
+export(list_data)

@@ -1,15 +1,3 @@
----
-title: "README.md"
-author: "Arvid Hutzfeldt"
-date: '2022-07-13'
-output:
-  html_document:
-    theme: cosmo
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 # **sev - The SummarizedExperiment Viewer**
 
@@ -30,5 +18,4 @@ BiocManager::install("iSEEu")
 devtools::install_github("adhutz/sev")
 ```
 
-## Data import
-Data can be imported directly from MaxQuant derived proteinGroups.txt or similar files to create a summarized experiment. 
+

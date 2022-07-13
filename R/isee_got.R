@@ -1,5 +1,4 @@
-library(iSEE)
-library(S4Vectors)
+
 setClass("GOTable", contains="Panel",
          slots=c(
            IDType="character",
@@ -15,25 +14,25 @@ allowable.org <- c("org.Mm.eg.db", "org.Hs.eg.db")
 
 setValidity2("GOTable", function(object) {
   msg <- character(0)
-  
+
   msg <- .allowableChoiceError(msg, object, "Organism", allowable.org)
-  
+
   msg <- .allowableChoiceError(msg, object, "IDType", allowable.ids)
-  
+
   msg <- .singleStringError(msg, object, c("Selected", "Search"))
-  
+
   if (length(msg)) {
     return(msg)
   }
   TRUE
 })
 
-setMethod("initialize", "GOTable", function(.Object, 
-                                            Organism="org.Mm.eg.db", IDType="SYMBOL", 
+setMethod("initialize", "GOTable", function(.Object,
+                                            Organism="org.Mm.eg.db", IDType="SYMBOL",
                                             Selected="", Search="", SearchColumns=character(0), ...)
 {
-  callNextMethod(.Object, IDType=IDType, Organism=Organism, 
-                 Selected=Selected, Search=Search, 
+  callNextMethod(.Object, IDType=IDType, Organism=Organism,
+                 Selected=Selected, Search=Search,
                  SearchColumns=SearchColumns, ...)
 })
 
@@ -80,7 +79,7 @@ setMethod(".generateOutput", "GOTable", function(x, se, ..., all_memory, all_con
                 "tab$GOID <- NULL;")
   eval(parse(text=commands), envir=envir)
   list(
-    commands=list(commands), 
+    commands=list(commands),
     contents=list(table=envir$tab, available=nrow(se)),
     varname="tab"
   )
@@ -90,24 +89,24 @@ setMethod(".createObservers", "GOTable",
           function(x, se, input, session, pObjects, rObjects)
           {
             callNextMethod()
-            
+
             panel_name <- .getEncodedName(x)
-            
+
             .createUnprotectedParameterObservers(panel_name,
-                                                 fields=c("Organism", "IDType"), 
+                                                 fields=c("Organism", "IDType"),
                                                  input=input, pObjects=pObjects, rObjects=rObjects)
-            
+
             # Observer for the DataTable row selection:
             select_field <- paste0(panel_name, "_rows_selected")
             multi_name <- paste0(panel_name, "_", iSEE:::.flagMultiSelect)
             observeEvent(input[[select_field]], {
               chosen <- input[[select_field]]
               if (length(chosen)==0L) {
-                chosen <- "" 
+                chosen <- ""
               } else {
                 chosen <- rownames(pObjects$contents[[panel_name]]$table)[chosen]
               }
-              
+
               previous <- pObjects$memory[[panel_name]][["Selected"]]
               if (chosen==previous) {
                 return(NULL)
@@ -115,7 +114,7 @@ setMethod(".createObservers", "GOTable",
               pObjects$memory[[panel_name]][["Selected"]] <- chosen
               .requestActiveSelectionUpdate(panel_name, session, pObjects, rObjects, update_output=FALSE)
             }, ignoreInit=TRUE, ignoreNULL=FALSE)
-            
+
             # Observer for the search field:
             search_field <- paste0(panel_name, "_search")
             observeEvent(input[[search_field]], {
@@ -125,7 +124,7 @@ setMethod(".createObservers", "GOTable",
               }
               pObjects$memory[[panel_name]][["Search"]] <- search
             })
-            
+
             # Observer for the column search fields:
             colsearch_field <- paste0(panel_name, "_search_columns")
             observeEvent(input[[colsearch_field]], {
@@ -139,18 +138,18 @@ setMethod(".createObservers", "GOTable",
 
 setMethod(".renderOutput", "GOTable", function(x, se, ..., output, pObjects, rObjects) {
   callNextMethod()
-  
+
   panel_name <- .getEncodedName(x)
   output[[panel_name]] <- DT::renderDataTable({
     t.out <- .retrieveOutput(panel_name, se, pObjects, rObjects)
     full_tab <- t.out$contents$table
-    
+
     param_choices <- pObjects$memory[[panel_name]]
     chosen <- param_choices[["Selected"]]
     search <- param_choices[["Search"]]
     search_col <- param_choices[["SearchColumns"]]
     search_col <- lapply(search_col, FUN=function(x) { list(search=x) })
-    
+
     # If the existing row in memory doesn't exist in the current table, we
     # don't initialize it with any selection.
     idx <- which(rownames(full_tab)==chosen)[1]
@@ -159,7 +158,7 @@ setMethod(".renderOutput", "GOTable", function(x, se, ..., output, pObjects, rOb
     } else {
       selection <- "single"
     }
-    
+
     DT::datatable(
       full_tab, filter="top", rownames=TRUE,
       options=list(
@@ -178,8 +177,8 @@ setMethod(".multiSelectionCommands", "GOTable", function(x, index) {
   type <- x[["IDType"]]
   c(
     sprintf("require(%s);", orgdb),
-    sprintf("selected <- tryCatch(select(%s, keys=%s, keytype='GO', 
-    column=%s)$SYMBOL, error=function(e) character(0));", 
+    sprintf("selected <- tryCatch(select(%s, keys=%s, keytype='GO',
+    column=%s)$SYMBOL, error=function(e) character(0));",
             orgdb, deparse(x[["Selected"]]), deparse(type)),
     "selected <- intersect(selected, rownames(se));"
   )

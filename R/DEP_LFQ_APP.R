@@ -152,7 +152,7 @@ ui <- shinyUI(
 
 server <- shinyServer(function(input, output) {
   options(shiny.maxRequestSize=200*1024^2)
-  
+
   ### UI functions ### --------------------------------------------------------
   output$columns <- renderMenu({
     menuItem("Columns",
@@ -184,7 +184,7 @@ server <- shinyServer(function(input, output) {
              }
     )
   })
-  
+
   ### Reactive functions ### --------------------------------------------------
   data <- reactive({
     inFile <- input$file1
@@ -202,14 +202,14 @@ server <- shinyServer(function(input, output) {
              sep = "\t", stringsAsFactors = FALSE) %>%
       mutate(id = row_number())
   })
-  
+
   filt <- reactive({
     data <- data()
     cols <- grep("^LFQ", colnames(data))
-    
+
     filtered <- DEP:::filter_MaxQuant(data, input$filt)
     unique_names <- make_unique(filtered, input$name, input$id)
-    
+
     if (input$anno == "columns") {
       se <- make_se_parse(unique_names, cols)
     }
@@ -218,30 +218,30 @@ server <- shinyServer(function(input, output) {
     }
     filter_missval(se, 0)
   })
-  
+
   norm <- reactive({
     normalize_vsn(filt())
   })
-  
+
   imp <- reactive({
     DEP::impute(norm(), input$imputation)
   })
-  
+
   df <- reactive({
     validate(
       need(input$control != "", "Please select a control condition")
     )
     test_diff(imp(), input$contrasts, input$control)
   })
-  
+
   dep <- reactive({
     add_rejections(df(), input$p, input$lfc)
   })
-  
+
   ### All object and functions upon 'Analyze' input  ### ----------------------
-  
+
   observeEvent(input$analyze, {
-    
+
     ### Interactive UI functions ### ------------------------------------------
     output$downloadTable <- renderUI({
       selectizeInput("dataset",
@@ -249,11 +249,11 @@ server <- shinyServer(function(input, output) {
                      c("results","significant_proteins",
                        "displayed_subset","full_dataset"))
     })
-    
+
     output$downloadButton <- renderUI({
       downloadButton('downloadData', 'Save')
     })
-    
+
     output$significantBox <- renderInfoBox({
       num_total <- dep() %>%
         nrow()
@@ -261,7 +261,7 @@ server <- shinyServer(function(input, output) {
         .[rowData(.)$significant, ] %>%
         nrow()
       frac <- num_signif / num_total
-      
+
       if(frac > 0.2) {
         info_box <- infoBox("Significant proteins",
                             paste0(num_signif,
@@ -297,7 +297,7 @@ server <- shinyServer(function(input, output) {
       }
       info_box
     })
-    
+
     output$select <- renderUI({
       row_data <- rowData(dep())
       cols <- grep("_significant", colnames(row_data))
@@ -308,7 +308,7 @@ server <- shinyServer(function(input, output) {
                      choices=names,
                      multiple = TRUE)
     })
-    
+
     output$exclude <- renderUI({
       row_data <- rowData(dep())
       cols <- grep("_significant", colnames(row_data))
@@ -319,7 +319,7 @@ server <- shinyServer(function(input, output) {
                      choices = names,
                      multiple = TRUE)
     })
-    
+
     output$volcano_cntrst <- renderUI({
       if (!is.null(selected())) {
         df <- rowData(selected())
@@ -329,31 +329,31 @@ server <- shinyServer(function(input, output) {
                        choices = gsub("_significant", "", colnames(df)[cols]))
       }
     })
-    
+
     ### Reactive functions ### ------------------------------------------------
     excluded <- reactive({
       DEP:::exclude_deps(dep(), input$exclude)
     })
-    
+
     selected <- reactive({
       DEP:::select_deps(excluded(), input$select)
     })
-    
+
     res <- reactive({
       get_results(selected())
     })
-    
+
     table <- reactive({
       DEP:::get_table(res(), input$pres)
     })
-    
+
     selected_plot_input <- reactive ({
       if(!is.null(input$table_rows_selected)) {
         selected_id <- table()[input$table_rows_selected,1]
         plot_single(selected(), selected_id, input$pres)
       }
     })
-    
+
     heatmap_input <- reactive({
       withProgress(message = 'Plotting', value = 0.66, {
         plot_heatmap(selected(),
@@ -363,7 +363,7 @@ server <- shinyServer(function(input, output) {
                      input$limit)
       })
     })
-    
+
     volcano_input <- reactive({
       if(!is.null(input$volcano_cntrst)) {
         plot_volcano(selected(),
@@ -373,81 +373,81 @@ server <- shinyServer(function(input, output) {
                      input$p_adj)
       }
     })
-    
+
     norm_input <- reactive({
       plot_normalization(filt(),
                          norm())
     })
-    
+
     missval_input <- reactive({
       plot_missval(norm())
     })
-    
+
     detect_input <- reactive({
       plot_detect(norm())
     })
-    
+
     imputation_input <- reactive({
       plot_imputation(norm(),
                       df())
     })
-    
+
     numbers_input <- reactive({
       plot_numbers(norm())
     })
-    
+
     coverage_input <- reactive({
       plot_coverage(norm())
     })
-    
+
     ### Output functions ### --------------------------------------------------
     output$table <- DT::renderDataTable({
       table()
     }, options = list(pageLength = 25, scrollX = T),
     selection = list(selected = c(1)))
-    
+
     output$selected_plot <- renderPlot({
       selected_plot_input()
     })
-    
+
     output$heatmap <- renderPlot({
       heatmap_input()
     })
-    
+
     output$volcano <- renderPlot({
       volcano_input()
     })
-    
+
     output$norm <- renderPlot({
       norm_input()
     })
-    
+
     output$missval <- renderPlot({
       missval_input()
     })
-    
+
     output$detect <- renderPlot({
       detect_input()
     })
-    
+
     output$imputation <- renderPlot({
       imputation_input()
     })
-    
+
     output$numbers <- renderPlot({
       numbers_input()
     })
-    
+
     output$coverage <- renderPlot({
       coverage_input()
     })
-    
+
     observe({
       output$plot <- renderUI({
         plotOutput("heatmap", height = (100 * as.numeric(input$size)))
       })
     })
-    
+
     ### Download objects and functions ### ------------------------------------
     datasetInput <- reactive({
       switch(input$dataset,
@@ -460,7 +460,7 @@ server <- shinyServer(function(input, output) {
                select(-significant),
              "full_dataset" = get_df_wide(dep()))
     })
-    
+
     output$downloadData <- downloadHandler(
       filename = function() { paste(input$dataset, ".txt", sep = "") },
       content = function(file) {
@@ -470,7 +470,7 @@ server <- shinyServer(function(input, output) {
                     row.names = FALSE,
                     sep ="\t") }
     )
-    
+
     output$downloadPlot <- downloadHandler(
       filename = function() {
         paste0("Barplot_", table()[input$table_rows_selected,1], ".pdf")
@@ -481,7 +481,7 @@ server <- shinyServer(function(input, output) {
         dev.off()
       }
     )
-    
+
     output$downloadHeatmap <- downloadHandler(
       filename = 'Heatmap.pdf',
       content = function(file) {
@@ -490,7 +490,7 @@ server <- shinyServer(function(input, output) {
         dev.off()
       }
     )
-    
+
     output$downloadVolcano <- downloadHandler(
       filename = function() {
         paste0("Volcano_", input$volcano_cntrst, ".pdf")
@@ -501,7 +501,7 @@ server <- shinyServer(function(input, output) {
         dev.off()
       }
     )
-    
+
     output$downloadNorm <- downloadHandler(
       filename = "normalization.pdf",
       content = function(file) {
@@ -510,7 +510,7 @@ server <- shinyServer(function(input, output) {
         dev.off()
       }
     )
-    
+
     output$downloadMissval <- downloadHandler(
       filename = "missing_values_heatmap.pdf",
       content = function(file) {
@@ -519,7 +519,7 @@ server <- shinyServer(function(input, output) {
         dev.off()
       }
     )
-    
+
     output$downloadDetect <- downloadHandler(
       filename = "missing_values_quant.pdf",
       content = function(file) {
@@ -528,7 +528,7 @@ server <- shinyServer(function(input, output) {
         dev.off()
       }
     )
-    
+
     output$downloadImputation <- downloadHandler(
       filename = "imputation.pdf",
       content = function(file) {
@@ -537,7 +537,7 @@ server <- shinyServer(function(input, output) {
         dev.off()
       }
     )
-    
+
     output$downloadNumbers <- downloadHandler(
       filename = "numbers.pdf",
       content = function(file) {
@@ -546,7 +546,7 @@ server <- shinyServer(function(input, output) {
         dev.off()
       }
     )
-    
+
     output$downloadCoverage <- downloadHandler(
       filename = "coverage.pdf",
       content = function(file) {

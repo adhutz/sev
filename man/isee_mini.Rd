@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{isee_mini}
 \alias{isee_mini}
-\title{Title}
+\title{Explores your own summarized experiment}
 \usage{
 isee_mini(se)
 }
@@ -13,5 +13,5 @@ isee_mini(se)
 an iSEE app
 }
 \description{
-Title
+Explores your own summarized experiment
 }

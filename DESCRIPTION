@@ -23,3 +23,5 @@ Imports:
     stats,
     tidyr,
     magrittr
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr

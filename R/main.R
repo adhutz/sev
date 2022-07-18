@@ -255,6 +255,7 @@ split_genes <- function(table, colname="gene_names", keep_all=FALSE){
 #' @param gene_column name of gene_name column after janitor
 #' @param protein_column name of protein column after janitor
 #' @param sep character describing the separator between sample name and replicate number (e.g. "_rep_", "_r")
+#' @param filt character vector of column names used for filtering. Genes with a "+" will be dropped.
 #' @param keep_all_proteins if FALSE, only first protein per protein-group is kept. If TRUE,
 #' entries are split in multiple rows
 #' @param keep_all_genes if FALSE, only first gene per protein-group is kept. If TRUE,
@@ -262,7 +263,6 @@ split_genes <- function(table, colname="gene_names", keep_all=FALSE){
 #' @param experimental_design dataframe with information regarding samples. If not specified,
 #' sample names and groups are read automatically (start with "lfq_intensity"), end with "_r" followed by
 #' replicate number.
-#'
 #' @return summarized experiment
 #' @export
 #' @importFrom dplyr group_by summarize filter ungroup select mutate mutate_all
@@ -273,7 +273,7 @@ split_genes <- function(table, colname="gene_names", keep_all=FALSE){
 #' Mandatory columns: sample (sample name), condition (treatment), replicate
 #'
 se_read_in <- function(file, gene_column = "gene_names", protein_column = "protein_ids", sep="_rep_",
-                       keep_all_proteins = F, keep_all_genes = F, experimental_design = ""){
+                       filt = c("reverse", "only_identified_by_site", "potential_contaminant"), keep_all_proteins = F, keep_all_genes = F, experimental_design = ""){
 
   #ProteinGroups
   data<-read.delim(file, sep="\t")
@@ -283,14 +283,14 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
     janitor::make_clean_names()
 
   #Split protein groups to single proteins, keep all
-  data<-data %>%
+  data <- data %>%
     mutate(orig_prot_ids = protein_ids,
            orig_gene_names = gene_names) %>%
     split_genes(colname = "protein_ids", keep_all = keep_all_proteins) %>%
     split_genes(colname = "gene_names", keep_all = keep_all_genes)
 
   #Filter false and low quality hits
-  data<-filter(data, reverse != "+", potential_contaminant != "+", only_identified_by_site != "+")
+  data <- data %>% filter(!if_any(filt, ~ .x == "+"))
 
   #Make gene_names unique
   data_unique <- make_unique(data, "gene_names", "protein_ids", delim=";")

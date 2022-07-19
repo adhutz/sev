@@ -123,7 +123,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 
   # Assumes missing data (in df) follows a narrowed and downshifted normal distribution
-
+  
   # 1. transform to long and set lfq_imputed = TRUE for all missing values
   df <- se %>%
     get_df_long() %>%
@@ -181,9 +181,11 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 
   # Add rowData
   rowData(se) <- cbind(rowData(se), imp_yn)
+  
+  temp <- assay(se)
 
   assay(se) <- assays(se)$imputed_perseus
-
+  assays(se)$lfq_imputed <- temp
   return(se)
 
 }
@@ -467,7 +469,10 @@ impute_DEP <- function(se, ...){
   assays(se)$imputed_DEP <- assay(temp)
   assays(se, withDimnames = FALSE)$imputed <- assay(se) %>% as.data.frame() %>% dplyr::mutate_all(~ ifelse(is.na(.x), 1,0)) %>% as.matrix()
 
+  temp <- assay(se)
   assay(se) <- assays(se)$imputed_DEP
+  
+  assays(se)$lfq_raw <- temp
 
   return(se)
 }

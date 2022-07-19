@@ -104,7 +104,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 }
 
 
-#' Impute_data()
+#'Impute_perseus()
 #'Imputes missing values in a summarized experiment similar to Perseus. Missing values are
 #'replaced by drawing from a left shifted gaussian distribution that is calculated based on either
 #'individual samples or all measurements.
@@ -185,7 +185,7 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
   temp <- assay(se)
 
   assay(se) <- assays(se)$imputed_perseus
-  assays(se)$lfq_imputed <- temp
+  assays(se)$lfq_raw <- temp
   return(se)
 
 }

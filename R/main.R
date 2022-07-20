@@ -462,15 +462,16 @@ se_to_isee <- function(se){
 #' @return se with imputed data in the main assay and raw data in another assay
 #' @export
 #'
-impute_DEP <- function(se, ...){
+impute_DEP <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
+                                   "man", "min", "zero", "mixed", "nbavg"), ...){
   
   if(fun == "mixed"){
 
-          temp <- DEP::impute(se, randna = rowData(se)$randna, ...)
+        temp <- DEP::impute(se, fun = fun, randna = rowData(se)$randna, ...)
   
   }else{
   
-        temp <- DEP::impute(se,...)
+        temp <- DEP::impute(se, fun = fun, ...)
   
   }
 

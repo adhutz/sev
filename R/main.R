@@ -463,8 +463,16 @@ se_to_isee <- function(se){
 #' @export
 #'
 impute_DEP <- function(se, ...){
+  
+  if(fun == "mixed"){
 
-  temp <- DEP::impute(se,...)
+          temp <- DEP::impute(se, randna = rowData(se)$randna, ...)
+  
+  }else{
+  
+        temp <- DEP::impute(se,...)
+  
+  }
 
   assays(se)$imputed_DEP <- assay(temp)
   assays(se, withDimnames = FALSE)$imputed <- assay(se) %>% as.data.frame() %>% dplyr::mutate_all(~ ifelse(is.na(.x), 1,0)) %>% as.matrix()

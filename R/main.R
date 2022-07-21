@@ -176,16 +176,12 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
   colnames(imp_yn) <- paste0(se$ID,"_imputed")
 
   # Add as assay
-  assays(se, withDimnames = FALSE)$imputed_perseus <- imp_val %>% as.matrix()
+  se <- add_assay(se, imp_val %>% as.matrix(), name = "imputed_perseus")
   assays(se, withDimnames = FALSE)$imputed <- imp_yn %>% dplyr::mutate_all(~ ifelse(.x, 1,0)) %>% as.matrix()
 
   # Add rowData
   rowData(se) <- cbind(rowData(se), imp_yn)
   
-  temp <- assay(se)
-
-  assay(se) <- assays(se)$imputed_perseus
-  assays(se)$lfq_raw <- temp
   return(se)
 
 }
@@ -462,26 +458,74 @@ se_to_isee <- function(se){
 #' @return se with imputed data in the main assay and raw data in another assay
 #' @export
 #'
-impute_DEP <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
-                                   "man", "min", "zero", "mixed", "nbavg"), ...){
+function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
+                               "man", "min", "zero", "mixed", "nbavg"), ...){
   
   if(fun == "mixed"){
-
-        temp <- DEP::impute(se, fun = fun, randna = rowData(se)$randna, ...)
-  
+    
+    temp <- DEP::impute(se, fun = fun, randna = rowData(se)$randna, ...)
+    
   }else{
-  
-        temp <- DEP::impute(se, fun = fun, ...)
-  
+    
+    temp <- DEP::impute(se, fun = fun, ...)
+    
   }
-
-  assays(se)$imputed_DEP <- assay(temp)
-  assays(se, withDimnames = FALSE)$imputed <- assay(se) %>% as.data.frame() %>% dplyr::mutate_all(~ ifelse(is.na(.x), 1,0)) %>% as.matrix()
-
-  temp <- assay(se)
-  assay(se) <- assays(se)$imputed_DEP
   
-  assays(se)$lfq_raw <- temp
-
+  se <- add_assay(se, assay(temp), "imputed_DEP")
+  
+  assays(se, withDimnames = FALSE)$imputed <- assay(se) %>% as.data.frame() %>% dplyr::mutate_all(~ ifelse(is.na(.x), 1,0)) %>% as.matrix()
+  
   return(se)
+  
+}
+
+#' add_assay()
+#' 
+#' Convinience function to add a new assay directly as the main assay. The old assay is reatined. 
+#' @param se Summarized experiment
+#' @param assay Assay to add as the main assay (first in the assays() list) 
+#' @param name Name of the added assay
+#'
+#' @return se with added assay. Old main assay is retained. 
+#' @export
+#'
+#' @examples
+add_assay <- function(se, new_assay, name){
+  temp <- assay(se)
+  temp_n <- names(assays(se))[1]
+  
+  assay(se) <- new_assay
+  
+  names(assays(se))[1] <- name
+  assays(se)[[temp_n]] <- temp
+  
+  return(se)  
+}
+
+
+#' to_pdf()
+#' 
+#' Convenience function to print plots as pdf document. 
+#'
+#' @param .data plot object
+#' @param filename String specifying filename. Can also specify path. 
+#' @param w width in inches
+#' @param h height in inches
+#'
+#' @return
+#' @export
+#'
+#' @examples
+to_pdf<-function(.data, filename, w=7,h=7){
+  
+  pdf(  sub("(.*)(?<=/)(.*)", paste0("\\1",gsub(":","-",format(Sys.time(), "%Y%m%d_")), "\\2", ".pdf"), filename, perl=TRUE ), # File name
+        width = w, height = h, # Width and height in inches
+        bg = "white",          # Background color
+        colormodel = "srgb",    # Color model (cmyk is required for most publications)
+        onefile=T)          # Paper size
+  
+  # Creating a plot
+  plot(.data)
+  # Closing the graphical device
+  dev.off() 
 }

@@ -177,7 +177,7 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
   colnames(imp_yn) <- paste0(se$ID,"_imputed")
 
   # Add as assay
-  se <- add_assay(se, imp_val %>% as.matrix(), name = "imputed_perseus")
+  se <- add_assay(se, imp_val %>% as.matrix(), name = "imputed_perseus", withDimnames = FALSE)
   assays(se, withDimnames = FALSE)$imputed <- imp_yn %>% dplyr::mutate_all(~ ifelse(.x, 1,0)) %>% as.matrix()
 
   # Add rowData
@@ -490,12 +490,12 @@ impute_DEP <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "Min
 #' @return se with added assay. Old main assay is retained. 
 #' @export
 #'
-add_assay <- function(se, new_assay, name){
+add_assay <- function(se, new_assay, name, withDimnames = TRUE){
   temp <- assay(se)
   temp_n <- names(assays(se))[1]
   
-  assay(se) <- new_assay
-  
+  assay(se, withDimnames = withDimnames) <- new_assay
+
   names(assays(se))[1] <- name
   assays(se)[[temp_n]] <- temp
   

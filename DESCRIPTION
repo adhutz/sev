@@ -8,7 +8,12 @@ License: `use_mit_license()`
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.0
-Depends: iSEE, iSEEu, DEP, ggplot2, SummarizedExperiment
+Depends: 
+    iSEE,
+    iSEEu,
+    DEP,
+    ggplot2,
+    SummarizedExperiment
 Imports: 
     BiocGenerics,
     clusterProfiler,

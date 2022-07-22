@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{impute_perseus}
 \alias{impute_perseus}
-\title{Impute_data()
+\title{Impute_perseus()
 Imputes missing values in a summarized experiment similar to Perseus. Missing values are
 replaced by drawing from a left shifted gaussian distribution that is calculated based on either
 individual samples or all measurements.}
@@ -23,7 +23,7 @@ or accross all samples}
 summarized experiment without missing values
 }
 \description{
-Impute_data()
+Impute_perseus()
 Imputes missing values in a summarized experiment similar to Perseus. Missing values are
 replaced by drawing from a left shifted gaussian distribution that is calculated based on either
 individual samples or all measurements.

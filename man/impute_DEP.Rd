@@ -6,7 +6,12 @@
 Utilizes the DEP::impute() function to replace missing values. In addition, original raw data
 is retained in an additional assay.}
 \usage{
-impute_DEP(se, ...)
+impute_DEP(
+  se,
+  fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb", "man", "min", "zero",
+    "mixed", "nbavg"),
+  ...
+)
 }
 \arguments{
 \item{se}{with missing data}

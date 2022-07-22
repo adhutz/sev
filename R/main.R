@@ -4,6 +4,7 @@ got<-GOTable(PanelWidth=8L)
 rst <- RowDataTable(PanelWidth = 12L)
 
 
+#' isee_mini()
 #' Explores your own summarized experiment
 #'
 #' @param se summarized experiment object
@@ -458,7 +459,7 @@ se_to_isee <- function(se){
 #' @return se with imputed data in the main assay and raw data in another assay
 #' @export
 #'
-function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
+impute_DEP <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
                                "man", "min", "zero", "mixed", "nbavg"), ...){
   
   if(fun == "mixed"){
@@ -489,7 +490,6 @@ function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
 #' @return se with added assay. Old main assay is retained. 
 #' @export
 #'
-#' @examples
 add_assay <- function(se, new_assay, name){
   temp <- assay(se)
   temp_n <- names(assays(se))[1]
@@ -512,10 +512,9 @@ add_assay <- function(se, new_assay, name){
 #' @param w width in inches
 #' @param h height in inches
 #'
-#' @return
+#' @return plot
 #' @export
 #'
-#' @examples
 to_pdf<-function(.data, filename, w=7,h=7){
   
   pdf(  sub("(.*)(?<=/)(.*)", paste0("\\1",gsub(":","-",format(Sys.time(), "%Y%m%d_")), "\\2", ".pdf"), filename, perl=TRUE ), # File name

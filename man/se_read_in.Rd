@@ -10,6 +10,7 @@ se_read_in(
   gene_column = "gene_names",
   protein_column = "protein_ids",
   sep = "_rep_",
+  filt = c("reverse", "only_identified_by_site", "potential_contaminant"),
   keep_all_proteins = F,
   keep_all_genes = F,
   experimental_design = ""
@@ -23,6 +24,8 @@ se_read_in(
 \item{protein_column}{name of protein column after janitor}
 
 \item{sep}{character describing the separator between sample name and replicate number (e.g. "\emph{rep}", "_r")}
+
+\item{filt}{character vector of column names used for filtering. Genes with a "+" will be dropped.}
 
 \item{keep_all_proteins}{if FALSE, only first protein per protein-group is kept. If TRUE,
 entries are split in multiple rows}

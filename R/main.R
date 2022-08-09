@@ -435,13 +435,15 @@ se_to_isee <- function(se, PValuePatterns = "p.val", LogFCPatterns = "_diff"){
   # Add GO-term enrichment as FeatureSet to allow plotting
   se <- registerFeatureSetCollections(se, metadata(se)$GO_enrichment)
   }
-
+  
+  if(!any(is.na(assay(se)))){
   # Calculate pca data
   pca_data <- prcomp(t(assay(se)), rank=50)
 
   # Add PCA data to the experiment object
   reducedDims(se)<-list(PCA=pca_data$x)
-
+  }
+  
   #Register columns that contain p-values and log differences (for volcano mainly)
   se<-registerPValuePatterns(se, PValuePatterns)
   se<-registerLogFCPatterns(se, LogFCPatterns)

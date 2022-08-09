@@ -428,7 +428,7 @@ se_GOE <- function(se, col_names =c(), simplify = TRUE, ont="all", keyType = "SY
 #' @importFrom iSEEu registerFeatureSetCollections registerPValuePatterns registerLogFCPatterns
 #' @importFrom SingleCellExperiment reducedDims
 #' @importFrom stats prcomp
-se_to_isee <- function(se){
+se_to_isee <- function(se, PValuePatterns = "p.val", LogFCPatterns = "_diff"){
   se <- as(se, "SingleCellExperiment")
 
   if("GO_enrichment" %in% names(metadata(se))){
@@ -443,8 +443,8 @@ se_to_isee <- function(se){
   reducedDims(se)<-list(PCA=pca_data$x)
 
   #Register columns that contain p-values and log differences (for volcano mainly)
-  se<-registerPValuePatterns(se,"p.val")
-  se<-registerLogFCPatterns(se,"_diff")
+  se<-registerPValuePatterns(se, PValuePatterns)
+  se<-registerLogFCPatterns(se, LogFCPatterns)
 
 }
 

@@ -597,7 +597,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
     mutate(Protein.names = protein_name, 
            Gene.names = gene_name) %>%
     select( 
-      - if(TRUE) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
+      - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
       else c("gene_name", "protein_name", "uniprot_name")
     )
 
@@ -607,7 +607,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
     mutate(Protein.names = protein_name, 
            Gene.names = gene_name) %>%
     select( 
-      - if(TRUE) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
+      - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
       else c("gene_name", "protein_name", "uniprot_name")
     )
   
@@ -621,7 +621,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
            Gene.names = gene_name,
            Fasta.headers = fasta) %>%
     select( 
-      - if(TRUE) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
+      - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
       else c("gene_name", "protein_name", "fasta", "uniprot_name")
     )
   
@@ -631,7 +631,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
            Gene.names = gene_name,
            Fasta.headers = fasta) %>%
     select( 
-      - if(TRUE) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
+      - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
       else c("gene_name", "protein_name", "fasta", "uniprot_name")
     )
   

@@ -547,8 +547,6 @@ to_pdf<-function(.data, filename, w=7,h=7){
 #'
 #' @return Either a named list containing all dataframes with correct protein names and gene names or locations where results have been stored.
 #' @export
-#'
-#' @examples
 fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE){
  
   # Read fasta file and create additional file containing only headers

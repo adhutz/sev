@@ -550,11 +550,7 @@ to_pdf<-function(.data, filename, w=7,h=7){
 #'
 #' @examples
 fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE){
-  
-  ##########################
-  #Preparation of annotation
-  ##########################
-  
+ 
   # Read fasta file and create additional file containing only headers
   system2(command = "grep", args = c("\"^>\"", fasta), stdout = paste0(gsub("\\..*", "", fasta), "_fasta_headers.txt"))
   
@@ -586,10 +582,6 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
       )
     )
   
-  ####################################
-  #Transformation of MaxQuant results
-  ####################################
-  
   # For peptides
   peptides_first<-read.delim(file = peptides) %>%
     sev:::split_genes(., "Proteins", FALSE) %>%
@@ -610,7 +602,6 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
       - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
       else c("gene_name", "protein_name", "uniprot_name")
     )
-  
   
   # For protein groups
   protein_groups <- read.delim(file = proteingroups)
@@ -634,11 +625,6 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
       - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
       else c("gene_name", "protein_name", "fasta", "uniprot_name")
     )
-  
-  
-  ####################################
-  #Exporting results
-  ####################################
   
   if(obj){
     return(list("fasta_headers" = fasta_headers, 

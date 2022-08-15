@@ -530,3 +530,143 @@ to_pdf<-function(.data, filename, w=7,h=7){
   # Closing the graphical device
   dev.off() 
 }
+
+
+#' Fix_maxq_pig()
+#' Pig proteins are poorly annotated and have a different "style" when it comes to fasta files. Thus, the output of MaxQuant 
+#' is not directly usable. This function takes in a MaxQuant file from an experiment using pig derived proteins and a fasta
+#' file and returns MaxQuant like files with correct protein names and gene names. In addition, columns are added that specify
+#' the organism in case proteins from multiple organisms are expected. In this case, the fasta input must contain entries for 
+#' the other organisms as well in the "pig-style". 
+#'
+#' @param proteingroups String specifying path to ProteinGroups file
+#' @param peptides String specifying path to ProteinGroups file
+#' @param fasta String specifying path to ProteinGroups file
+#' @param mult_org Logical specifying if fasta and experiment contain multiple organisms.
+#' @param obj Logical specifying if results should be returned as one named list. If FALSE, results are saved as individual files. 
+#'
+#' @return Either a named list containing all dataframes with correct protein names and gene names or locations where results have been stored.
+#' @export
+#'
+#' @examples
+fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE){
+  
+  ##########################
+  #Preparation of annotation
+  ##########################
+  
+  # Read fasta file and create additional file containing only headers
+  system2(command = "grep", args = c("\"^>\"", fasta), stdout = paste0(gsub("\\..*", "", fasta), "_fasta_headers.txt"))
+  
+  # Read newly created header file
+  fasta_headers_ <- read.delim(paste0(gsub("\\..*", "", fasta), "_fasta_headers.txt"), col.names = "fasta")
+  
+  # Create annotation from fasta headers
+  fasta_headers <- fasta_headers_ %>% 
+    mutate(
+      uniprot = sub("^>.*?\\|(.*?)\\|.*", "\\1", fasta, perl = TRUE), # extract UNIPROT ID (Between "|")
+      
+      uniprot_name = ifelse(grepl("\\|.*\\|[A-Z0-9]*_[A-Z0-9]* ", fasta), # Extract uniprot name if present
+                            sub("^>.*?\\|.*\\|(.*?) .*", "\\1", fasta, perl = TRUE), 
+                            NA),
+      protein_name = ifelse(grepl("\\|.*\\|[A-Z0-9]*_[A-Z0-9]*", fasta), # Extract protein name
+                            sub("^>.*?\\|.*?\\|.*? (.*?) OS.*", "\\1", fasta, perl = TRUE), # If uniprot_name is present 
+                            sub("^>.*?\\|.*?\\|(.*?)\\ OS.*", "\\1", fasta, perl = TRUE)), #Else
+      organism = ifelse(grepl("OS=", fasta), 
+                        sub(".*OS=(.*? [a-z]*).*", "\\1", fasta, perl = TRUE), #Extract Organism ID if present. If no OS is specified, protein_names won't be returned
+                        NA),
+      organism_id = ifelse(grepl("OX=", fasta), 
+                           sub(".* OX=([0-9]*).*", "\\1", fasta, perl = TRUE), #Extract Organism ID
+                           NA),
+      gene_name = ifelse(grepl("GN=.*? ", fasta), 
+                         sub(".*GN=(.*?) .*", "\\1", fasta, perl = TRUE), 
+                         ifelse(grepl("GN=.*?", fasta), 
+                                sub(".*GN=.*?", "\\1", fasta, perl = TRUE), 
+                                NA)
+      )
+    )
+  
+  ####################################
+  #Transformation of MaxQuant results
+  ####################################
+  
+  # For peptides
+  peptides_first<-read.delim(file = peptides) %>%
+    sev:::split_genes(., "Proteins", FALSE) %>%
+    merge(fasta_headers, by.x = "Proteins", by.y = "uniprot", all.x = T) %>%
+    mutate(Protein.names = protein_name, 
+           Gene.names = gene_name) %>%
+    select( 
+      - if(TRUE) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
+      else c("gene_name", "protein_name", "uniprot_name")
+    )
+
+  peptides_all<-read.delim(file = peptides) %>%
+    sev:::split_genes(., "Proteins", TRUE) %>%
+    merge(fasta_headers, by.x="Proteins", by.y = "uniprot", all.x = T) %>%
+    mutate(Protein.names = protein_name, 
+           Gene.names = gene_name) %>%
+    select( 
+      - if(TRUE) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
+      else c("gene_name", "protein_name", "uniprot_name")
+    )
+  
+  
+  # For protein groups
+  protein_groups <- read.delim(file = proteingroups)
+  
+  protein_groups_first <- sev:::split_genes(protein_groups, "Protein.IDs", FALSE) %>%
+    merge(fasta_headers, by.x = "Protein.IDs", by.y = "uniprot", all.x = TRUE) %>%
+    mutate(Protein.names = protein_name, 
+           Gene.names = gene_name,
+           Fasta.headers = fasta) %>%
+    select( 
+      - if(TRUE) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
+      else c("gene_name", "protein_name", "fasta", "uniprot_name")
+    )
+  
+  protein_groups_all <- sev:::split_genes(protein_groups, "Protein.IDs", TRUE) %>%
+    merge(fasta_headers, by.x = "Protein.IDs", by.y = "uniprot", all.x = TRUE) %>%
+    mutate(Protein.names = protein_name, 
+           Gene.names = gene_name,
+           Fasta.headers = fasta) %>%
+    select( 
+      - if(TRUE) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
+      else c("gene_name", "protein_name", "fasta", "uniprot_name")
+    )
+  
+  
+  ####################################
+  #Exporting results
+  ####################################
+  
+  if(obj){
+    return(list("fasta_headers" = fasta_headers, 
+                "peptides_first" = peptides_first, 
+                "peptides_all" = peptides_all, 
+                "proteins_groups_first" = protein_groups_first,
+                "protein_groups_all" = protein_groups_all, 
+                "fasta_file" = fasta)
+    )
+  }
+  
+  else{
+    write.table(fasta_headers, format(Sys.time(), "%Y%m%d_fasta_headers.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+    write.table(peptides_first, format(Sys.time(), "%Y%m%d_peptides_first.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+    write.table(peptides_all, format(Sys.time(), "%Y%m%d_peptides_all.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+    write.table(protein_groups_first, format(Sys.time(), "%Y%m%d_protein_groups_first.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+    write.table(protein_groups_all, format(Sys.time(), "%Y%m%d_protein_groups_all.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+    return(
+      paste0("Results are accessible in the folder:\n\"", getwd(), "\".\n\nFile names:\n", 
+             format(Sys.time(), "%Y%m%d_fasta_headers.txt\n"),
+             format(Sys.time(), "%Y%m%d_peptides_first.txt\n"),
+             format(Sys.time(), "%Y%m%d_peptides_all.txt\n"),
+             format(Sys.time(), "%Y%m%d_protein_groups_first.txt\n"),
+             format(Sys.time(), "%Y%m%d_protein_groups_all.txt\n"),
+             "\n\nInput fasta file was:\n", 
+             fasta
+      ) %>% 
+        cat(.)
+    ) 
+  }
+}

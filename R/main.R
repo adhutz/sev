@@ -544,7 +544,7 @@ to_pdf<-function(.data, filename, w=7,h=7){
 #' @param fasta String specifying path to ProteinGroups file
 #' @param mult_org Logical specifying if fasta and experiment contain multiple organisms.
 #' @param obj Logical specifying if results should be returned as one named list. If FALSE, results are saved as individual files. 
-#'
+#' @importFrom dplyr mutate select
 #' @return Either a named list containing all dataframes with correct protein names and gene names or locations where results have been stored.
 #' @export
 fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE){
@@ -586,7 +586,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
     merge(fasta_headers, by.x = "Proteins", by.y = "uniprot", all.x = T) %>%
     mutate(Protein.names = protein_name, 
            Gene.names = gene_name) %>%
-    select( 
+    dplyr::select( 
       - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
       else c("gene_name", "protein_name", "uniprot_name")
     )
@@ -596,7 +596,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
     merge(fasta_headers, by.x="Proteins", by.y = "uniprot", all.x = T) %>%
     mutate(Protein.names = protein_name, 
            Gene.names = gene_name) %>%
-    select( 
+    dplyr::select( 
       - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
       else c("gene_name", "protein_name", "uniprot_name")
     )
@@ -609,7 +609,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
     mutate(Protein.names = protein_name, 
            Gene.names = gene_name,
            Fasta.headers = fasta) %>%
-    select( 
+    dplyr::select( 
       - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
       else c("gene_name", "protein_name", "fasta", "uniprot_name")
     )
@@ -619,7 +619,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
     mutate(Protein.names = protein_name, 
            Gene.names = gene_name,
            Fasta.headers = fasta) %>%
-    select( 
+    dplyr::select( 
       - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "fasta", "organism_id") 
       else c("gene_name", "protein_name", "fasta", "uniprot_name")
     )

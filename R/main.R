@@ -548,7 +548,7 @@ to_pdf<-function(.data, filename, w=7,h=7){
 #' @importFrom dplyr mutate select
 #' @return Either a named list containing all dataframes with correct protein names and gene names or locations where results have been stored.
 #' @export
-fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE){
+fix_maxq_pig <- function(proteingroups, peptides = NA, fasta, mult_org = FALSE, obj = FALSE){
   
   # Read fasta file and create additional file containing only headers
   system2(command = "grep", args = c("\"^>\"", fasta), stdout = paste0(gsub("\\..*", "", fasta), "_fasta_headers.txt"))
@@ -581,27 +581,43 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
       )
     )
   
-  # For peptides
-  peptides_first<-read.delim(file = peptides) %>%
-    sev:::split_genes(., "Proteins", FALSE) %>%
-    merge(fasta_headers, by.x = "Proteins", by.y = "uniprot", all.x = T) %>%
-    mutate(Protein.names = protein_name, 
-           Gene.names = gene_name) %>%
-    dplyr::select( 
-      - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
-      else c("gene_name", "protein_name", "uniprot_name")
-    )
+  res <- list()
+  pep_f = ""
+  prot_f = ""
   
-  peptides_all<-read.delim(file = peptides) %>%
-    sev:::split_genes(., "Proteins", TRUE) %>%
-    merge(fasta_headers, by.x="Proteins", by.y = "uniprot", all.x = T) %>%
-    mutate(Protein.names = protein_name, 
-           Gene.names = gene_name) %>%
-    dplyr::select( 
-      - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
-      else c("gene_name", "protein_name", "uniprot_name")
-    )
+  if(!is.na(peptides)){
+    # For peptides
+    peptides_first<-read.delim(file = peptides) %>%
+      sev:::split_genes(., "Proteins", FALSE) %>%
+      merge(fasta_headers, by.x = "Proteins", by.y = "uniprot", all.x = T) %>%
+      mutate(Protein.names = protein_name, 
+             Gene.names = gene_name) %>%
+      dplyr::select( 
+        - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
+        else c("gene_name", "protein_name", "uniprot_name")
+      )
+    
+    peptides_all<-read.delim(file = peptides) %>%
+      sev:::split_genes(., "Proteins", TRUE) %>%
+      merge(fasta_headers, by.x="Proteins", by.y = "uniprot", all.x = T) %>%
+      mutate(Protein.names = protein_name, 
+             Gene.names = gene_name) %>%
+      dplyr::select( 
+        - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
+        else c("gene_name", "protein_name", "uniprot_name")
+      )
+    
+    if(obj){
+     res[["peptides_first"]] = peptides_first
+     res[["peptides_all"]] = peptides_all
+    } else{
+      write.table(peptides_first, format(Sys.time(), "%Y%m%d_peptides_first.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+      write.table(peptides_all, format(Sys.time(), "%Y%m%d_peptides_all.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+      pep_f <- paste0(format(Sys.time(), "%Y%m%d_peptides_first.txt\n"),
+                      format(Sys.time(), "%Y%m%d_peptides_all.txt\n"))
+  }
   
+  if(!is.na(proteingroups)){
   # For protein groups
   protein_groups <- read.delim(file = proteingroups)
   
@@ -625,34 +641,34 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
       else c("gene_name", "protein_name", "fasta", "uniprot_name")
     )
   
-  if(obj){
-    return(list("fasta_headers" = fasta_headers, 
-                "peptides_first" = peptides_first, 
-                "peptides_all" = peptides_all, 
-                "proteins_groups_first" = protein_groups_first,
-                "protein_groups_all" = protein_groups_all, 
-                "fasta_file" = fasta)
-    )
+    if(obj){
+      res[["proteins_groups_first"]] = protein_groups_first
+      res[["protein_groups_all"]] = protein_groups_all
+    } else{
+        write.table(protein_groups_first, format(Sys.time(), "%Y%m%d_protein_groups_first.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+        write.table(protein_groups_all, format(Sys.time(), "%Y%m%d_protein_groups_all.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
+        prot_f <- paste0(format(Sys.time(), "%Y%m%d_protein_groups_first.txt\n"),
+                         format(Sys.time(), "%Y%m%d_protein_groups_all.txt\n"))
+        }
+    
   }
   
-  else{
-    write.table(fasta_headers, format(Sys.time(), "%Y%m%d_fasta_headers.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
-    write.table(peptides_first, format(Sys.time(), "%Y%m%d_peptides_first.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
-    write.table(peptides_all, format(Sys.time(), "%Y%m%d_peptides_all.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
-    write.table(protein_groups_first, format(Sys.time(), "%Y%m%d_protein_groups_first.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
-    write.table(protein_groups_all, format(Sys.time(), "%Y%m%d_protein_groups_all.txt"), quote = FALSE, sep = "\t", row.names = FALSE)
-    return(
-      paste0("Results are accessible in the folder:\n\"", getwd(), "\".\n\nFile names:\n", 
-             format(Sys.time(), "%Y%m%d_fasta_headers.txt\n"),
-             format(Sys.time(), "%Y%m%d_peptides_first.txt\n"),
-             format(Sys.time(), "%Y%m%d_peptides_all.txt\n"),
-             format(Sys.time(), "%Y%m%d_protein_groups_first.txt\n"),
-             format(Sys.time(), "%Y%m%d_protein_groups_all.txt\n"),
-             "\n\nInput fasta file was:\n", 
-             fasta
-      ) %>% 
-        cat(.)
-    ) 
+    if(obj){
+      res[["fasta_headers"]] = fasta_headers
+      res[["fasta_file"]] = fasta
+      
+      return(res)
+      } else{
+        return(
+          paste0("Results are accessible in the folder:\n\"", getwd(), "\".\n\nFile names:\n", 
+                 format(Sys.time(), "%Y%m%d_fasta_headers.txt\n"),
+                 pep_f,
+                 prot_f,
+                 "\n\nInput fasta file was:\n", 
+                 fasta) %>% 
+          cat(.)) 
+    }
+ 
   }
 }
 

@@ -532,6 +532,7 @@ to_pdf<-function(.data, filename, w=7,h=7){
 }
 
 
+
 #' Fix_maxq_pig()
 #' Pig proteins are poorly annotated and have a different "style" when it comes to fasta files. Thus, the output of MaxQuant 
 #' is not directly usable. This function takes in a MaxQuant file from an experiment using pig derived proteins and a fasta
@@ -548,7 +549,7 @@ to_pdf<-function(.data, filename, w=7,h=7){
 #' @return Either a named list containing all dataframes with correct protein names and gene names or locations where results have been stored.
 #' @export
 fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE){
- 
+  
   # Read fasta file and create additional file containing only headers
   system2(command = "grep", args = c("\"^>\"", fasta), stdout = paste0(gsub("\\..*", "", fasta), "_fasta_headers.txt"))
   
@@ -590,7 +591,7 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
       - if(!mult_org) c("gene_name", "protein_name", "uniprot_name", "organism", "organism_id") 
       else c("gene_name", "protein_name", "uniprot_name")
     )
-
+  
   peptides_all<-read.delim(file = peptides) %>%
     sev:::split_genes(., "Proteins", TRUE) %>%
     merge(fasta_headers, by.x="Proteins", by.y = "uniprot", all.x = T) %>%
@@ -654,3 +655,4 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
     ) 
   }
 }
+

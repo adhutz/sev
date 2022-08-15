@@ -9,7 +9,7 @@ GO-enrichment is registered from the metadata as a feature set collection and
 p-values and differences are registered to be plotted via volcano plots.
 #'}
 \usage{
-se_to_isee(se)
+se_to_isee(se, PValuePatterns = "p.val", LogFCPatterns = "_diff")
 }
 \arguments{
 \item{se}{summarized experiment}

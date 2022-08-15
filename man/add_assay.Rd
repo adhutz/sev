@@ -4,7 +4,7 @@
 \alias{add_assay}
 \title{add_assay()}
 \usage{
-add_assay(se, new_assay, name)
+add_assay(se, new_assay, name, withDimnames = TRUE)
 }
 \arguments{
 \item{se}{Summarized experiment}

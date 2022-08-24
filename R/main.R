@@ -5,6 +5,7 @@ rst <- RowDataTable(PanelWidth = 12L)
 
 
 #' isee_mini()
+#' 
 #' Explores your own summarized experiment
 #'
 #' @param se summarized experiment object
@@ -18,6 +19,7 @@ isee_mini <- function(se) {
 
 
 #' Make_mini()
+#' 
 #' Reduces the columns of rowData to the minimum. Names and IDs of genes and
 #' proteins are retained together with t-test results including fold change,
 #' p-value, adjusted p-value and if the result is significant (adj. p-value <0.05).
@@ -40,6 +42,7 @@ make_mini <- function(se) {
 }
 
 #' filter_perseus()
+#' 
 #' Filters proteins with too many missing values. Parameters mimic the options
 #' given by Perseus.
 #'
@@ -106,6 +109,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 
 
 #'Impute_perseus()
+#'
 #'Imputes missing values in a summarized experiment similar to Perseus. Missing values are
 #'replaced by drawing from a left shifted gaussian distribution that is calculated based on either
 #'individual samples or all measurements.
@@ -190,6 +194,7 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 ###################################
 
 #' se_volcano()
+#' 
 #' Create a volcano plot for a summarized experiment and the selected contrast.
 #'
 #' @param se summarized experiment
@@ -248,6 +253,7 @@ split_genes <- function(table, colname="gene_names", keep_all=FALSE){
 }
 
 #' se_read_in()
+#' 
 #' Reads in MaxQuant or other output and creates a summarized experiment.
 #'
 #' @param file path to proteinGroups or similar file
@@ -313,6 +319,7 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
 }
 
 #' add_randna()
+#' 
 #' Add column to rowData that specifies for each row if values are missing at random or
 #' not. The method is very rudimentary:
 #' 1. Missing values are replaced by zeros, measured values by 1.
@@ -341,6 +348,7 @@ add_randna <- function(se){
 }
 
 #' se_GOE()
+#' 
 #' Performs GO-term enrichment via clusterprofiler for all contrasts of a summarized experiment.
 #' Results are added to the metadata.
 #'
@@ -416,6 +424,7 @@ se_GOE <- function(se, col_names =c(), simplify = TRUE, ont="all", keyType = "SY
 
 
 #' se_to_isee()
+#' 
 #' Transform summarized experiment. The result is a summarized experiment
 #' of the type "SingleCellExperiment" to allow dimensional reduction plots.
 #' GO-enrichment is registered from the metadata as a feature set collection and
@@ -452,6 +461,7 @@ se_to_isee <- function(se, PValuePatterns = "p.val", LogFCPatterns = "_diff"){
 
 
 #' impute_DEP()
+#' 
 #' Utilizes the DEP::impute() function to replace missing values. In addition, original raw data
 #' is retained in an additional assay.
 #'
@@ -534,6 +544,7 @@ to_pdf<-function(.data, filename, w=7,h=7){
 
 
 #' Fix_maxq_pig()
+#' 
 #' Pig proteins are poorly annotated and have a different "style" when it comes to fasta files. Thus, the output of MaxQuant 
 #' is not directly usable. This function takes in a MaxQuant file from an experiment using pig derived proteins and a fasta
 #' file and returns MaxQuant like files with correct protein names and gene names. In addition, columns are added that specify

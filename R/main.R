@@ -233,8 +233,9 @@ se_volcano<-function(se, contrast_){
 
 }
 
-#' Split_genes
+#' Split_genes()
 #'
+#' Split columns with multiple entries (need to be separated by a semicolon) into multiple rows with one entry each.
 #' @param table dataframe
 #' @param colname column that needs to be split (e.g., gene_names, protein_ids)
 #' @param keep_all if TRUE, all entries are retained in additional rows. If FALSE,

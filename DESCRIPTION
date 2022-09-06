@@ -12,12 +12,12 @@ Depends:
     iSEE,
     iSEEu,
     DEP,
-    ggplot2
+    ggplot2,
+    fdrtool, 
+    dplyr
 Imports: 
     BiocGenerics,
     clusterProfiler,
-    dplyr,
-    fdrtool,
     ggrepel,
     HybridMTest,
     janitor,
@@ -28,3 +28,11 @@ Imports:
     magrittr
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
+Remotes: 
+    bioc::iSEE, 
+    bioc::iSEEu,
+    bioc::DEP,
+    bioc::clusterProfiler,
+    bioc::HybridMTest,
+    bioc::SingleCellExperiment,
+    

@@ -31,7 +31,7 @@ Imports:
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 Remotes: 
-    bioc::DO.db,
+    bioc::DOSE,
     bioc::iSEE, 
     bioc::iSEEu,
     bioc::DEP,

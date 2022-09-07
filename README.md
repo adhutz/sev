@@ -11,8 +11,7 @@ Open up R and run the following code:
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
     
-BiocManager::install("iSEE")
-BiocManager::install("iSEEu")
+BiocManager::install("DO.db")
 
 #All other dependencies are installed automatically with sev. 
 devtools::install_github("adhutz/sev")

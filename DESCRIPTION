@@ -16,7 +16,7 @@ Depends:
     fdrtool, 
     dplyr,
     MSnbase,
-    DO.db
+    DOSE
 Imports: 
     BiocGenerics,
     clusterProfiler,

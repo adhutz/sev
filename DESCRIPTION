@@ -15,8 +15,7 @@ Depends:
     ggplot2,
     fdrtool, 
     dplyr,
-    MSnbase,
-    DOSE
+    MSnbase
 Imports: 
     BiocGenerics,
     clusterProfiler,
@@ -31,7 +30,6 @@ Imports:
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 Remotes: 
-    bioc::DOSE,
     bioc::iSEE, 
     bioc::iSEEu,
     bioc::DEP,

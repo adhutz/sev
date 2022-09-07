@@ -11,7 +11,11 @@ Open up R and run the following code:
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
     
-BiocManager::install("DO.db")
+if (!require("devtools", quietly = TRUE))
+    install.packages("devtools")
+    
+if (!require("DO.db", quietly = TRUE))
+    install.packages("DO.db")
 
 #All other dependencies are installed automatically with sev. 
 devtools::install_github("adhutz/sev")

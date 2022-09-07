@@ -14,7 +14,9 @@ Depends:
     DEP,
     ggplot2,
     fdrtool, 
-    dplyr
+    dplyr,
+    MSnbase,
+    DO.db
 Imports: 
     BiocGenerics,
     clusterProfiler,
@@ -29,10 +31,10 @@ Imports:
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 Remotes: 
+    bioc::DO.db,
     bioc::iSEE, 
     bioc::iSEEu,
     bioc::DEP,
     bioc::clusterProfiler,
     bioc::HybridMTest,
-    bioc::SingleCellExperiment,
-    
+    bioc::SingleCellExperiment

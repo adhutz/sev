@@ -668,3 +668,101 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
   }
 }
 
+
+#' get_network()
+#'
+#' @param genes List or vector of gene symbols
+#' @param species ID of species (human = 9606)
+#' @param expression_data dataframe containing a column "gene_names" and additional columns containing numeric values
+#' @param expand if TRUE, the network is expanded with additional known interactors
+#' @param network_type either "functional" or "physical". If "physical", only genes with a physical interaction are connected (e.g. complexes)
+#' @param score minimal score for a drawn interaction.
+#' @param common_legend If TRUE, minimal and maximal values for the legend are calculated across all columns
+#' @param node_deg_above Number specifiying which genes should be deleted from the network (e.g. if 0, all genes with zero interaction partners are removed)
+#'
+#' @importFrom dplyr mutate select
+#' @importFrom rbioapi rba_string_map_ids rba_string_interaction_partners rba_string_interactions_network
+#' @importFrom igraph graph_from_data_frame delete.vertices degree
+#' @importFrom cowplot plot_grid
+#' @import ggraph
+#'
+#' @return string network with integrated numeric values (fold-changes, lfq-values, ...)
+#' @export
+#'
+get_network <- function(genes, species = 9606, expression_data = NA, expand = FALSE, network_type = "functional", score = 900, common_legend = FALSE, node_deg_above = NA){
+  
+  #calculate min/max
+  
+  if(common_legend){
+    min = min(expression_data[, -!is.numeric(expression_data)], na.rm = TRUE)
+    max = max(expression_data[, -!is.numeric(expression_data)], na.rm = TRUE)
+  } 
+  
+  prots <- genes %>% rbioapi::rba_string_map_ids(species=species) %>% merge(expression_data, by.y = "gene_names", by.x = "queryItem")
+  
+  if(expand){
+    int_net <- rbioapi::rba_string_interaction_partners(prots$stringId, 
+                                                        species = 9606, 
+                                                        required_score = score,
+                                                        network_type = network_type)
+  }else{
+    int_net <- rbioapi::rba_string_interactions_network(prots$stringId, 
+                                                        species = 9606, 
+                                                        required_score = score, 
+                                                        network_type = network_type)
+  }  
+  
+  
+  # Create node table
+  node_tbl <- data.frame(name = unique(c(int_net$stringId_A, int_net$stringId_B))) %>% 
+    merge(prots, by.x = "name", by.y = "stringId", all = T)
+  
+  
+  
+  # Create graph object
+  g_obj <- igraph::graph_from_data_frame(int_net, node_tbl, directed = TRUE)
+  
+  if(!is.na(node_deg_above)){
+    g_obj <- igraph::delete.vertices(g_obj , which(igraph::degree(g_obj)<=node_deg_above))
+  }
+  #Plot networks with expression data
+  
+  
+  ps <- list()
+  
+  for(i in  colnames(expression_data[-grep("gene_names", colnames(expression_data))])){
+    
+    if(!common_legend){
+      min = min(expression_data[,i], na.rm = TRUE)
+      max = max(expression_data[,i], na.rm = TRUE)
+    }
+    
+    ps[[i]] <- ggraph(g_obj, layout = "stress")+
+      geom_edge_link0(aes(edge_width = score), 
+                      edge_colour="grey",
+                      alpha=0.7) +
+      geom_node_point(aes_string(fill = i), 
+                      shape = 21, size=12) +
+      geom_node_text(aes(label = preferredName))+
+      scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                           limits = c(min,max))+
+      scale_edge_width_continuous(range = c(0,1))+
+      theme_void()+
+      labs(title = i)
+  }
+  
+  p <- cowplot::plot_grid(plotlist=ps)
+  
+  result = list("node_tbl" = node_tbl,
+                "graph_obj" = g_obj,
+                "plotlist" = ps, 
+                "plot" = p,
+                "params" = list("species" = species, 
+                                "network_type" = network_type, 
+                                "score" = score,
+                                "common_legend" = common_legend, 
+                                "node_deg_above" = node_deg_above))
+  
+  return(result)
+  
+}

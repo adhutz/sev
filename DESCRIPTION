@@ -26,7 +26,11 @@ Imports:
     splitstackshape,
     stats,
     tidyr,
-    magrittr
+    magrittr,
+    ggraph,
+    cowplot,
+    igraph,
+    rbioapi
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 Remotes: 

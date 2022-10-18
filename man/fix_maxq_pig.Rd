@@ -2,12 +2,7 @@
 % Please edit documentation in R/main.R
 \name{fix_maxq_pig}
 \alias{fix_maxq_pig}
-\title{Fix_maxq_pig()
-Pig proteins are poorly annotated and have a different "style" when it comes to fasta files. Thus, the output of MaxQuant
-is not directly usable. This function takes in a MaxQuant file from an experiment using pig derived proteins and a fasta
-file and returns MaxQuant like files with correct protein names and gene names. In addition, columns are added that specify
-the organism in case proteins from multiple organisms are expected. In this case, the fasta input must contain entries for
-the other organisms as well in the "pig-style".}
+\title{Fix_maxq_pig()}
 \usage{
 fix_maxq_pig(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE)
 }
@@ -26,7 +21,6 @@ fix_maxq_pig(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE)
 Either a named list containing all dataframes with correct protein names and gene names or locations where results have been stored.
 }
 \description{
-Fix_maxq_pig()
 Pig proteins are poorly annotated and have a different "style" when it comes to fasta files. Thus, the output of MaxQuant
 is not directly usable. This function takes in a MaxQuant file from an experiment using pig derived proteins and a fasta
 file and returns MaxQuant like files with correct protein names and gene names. In addition, columns are added that specify

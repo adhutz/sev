@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{se_read_in}
 \alias{se_read_in}
-\title{se_read_in()
-Reads in MaxQuant or other output and creates a summarized experiment.}
+\title{se_read_in()}
 \usage{
 se_read_in(
   file,
@@ -41,7 +40,6 @@ replicate number.}
 summarized experiment
 }
 \description{
-se_read_in()
 Reads in MaxQuant or other output and creates a summarized experiment.
 }
 \examples{

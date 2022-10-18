@@ -2,10 +2,7 @@
 % Please edit documentation in R/main.R
 \name{make_mini}
 \alias{make_mini}
-\title{Make_mini()
-Reduces the columns of rowData to the minimum. Names and IDs of genes and
-proteins are retained together with t-test results including fold change,
-p-value, adjusted p-value and if the result is significant (adj. p-value <0.05).}
+\title{Make_mini()}
 \usage{
 make_mini(se)
 }
@@ -16,7 +13,6 @@ make_mini(se)
 se summarized Experiment with reduced rowData
 }
 \description{
-Make_mini()
 Reduces the columns of rowData to the minimum. Names and IDs of genes and
 proteins are retained together with t-test results including fold change,
 p-value, adjusted p-value and if the result is significant (adj. p-value <0.05).

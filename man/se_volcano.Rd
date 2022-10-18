@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{se_volcano}
 \alias{se_volcano}
-\title{se_volcano()
-Create a volcano plot for a summarized experiment and the selected contrast.}
+\title{se_volcano()}
 \usage{
 se_volcano(se, contrast_)
 }
@@ -16,6 +15,5 @@ se_volcano(se, contrast_)
 volcano plot
 }
 \description{
-se_volcano()
 Create a volcano plot for a summarized experiment and the selected contrast.
 }

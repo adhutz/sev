@@ -2,12 +2,7 @@
 % Please edit documentation in R/main.R
 \name{se_to_isee}
 \alias{se_to_isee}
-\title{se_to_isee()
-Transform summarized experiment. The result is a summarized experiment
-of the type "SingleCellExperiment" to allow dimensional reduction plots.
-GO-enrichment is registered from the metadata as a feature set collection and
-p-values and differences are registered to be plotted via volcano plots.
-#'}
+\title{se_to_isee()}
 \usage{
 se_to_isee(se, PValuePatterns = "p.val", LogFCPatterns = "_diff")
 }
@@ -18,7 +13,6 @@ se_to_isee(se, PValuePatterns = "p.val", LogFCPatterns = "_diff")
 se summarized experiment with registered features
 }
 \description{
-se_to_isee()
 Transform summarized experiment. The result is a summarized experiment
 of the type "SingleCellExperiment" to allow dimensional reduction plots.
 GO-enrichment is registered from the metadata as a feature set collection and

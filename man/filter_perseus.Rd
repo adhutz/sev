@@ -2,9 +2,7 @@
 % Please edit documentation in R/main.R
 \name{filter_perseus}
 \alias{filter_perseus}
-\title{filter_perseus()
-Filters proteins with too many missing values. Parameters mimic the options
-given by Perseus.}
+\title{filter_perseus()}
 \usage{
 filter_perseus(se, perc_na = 0.33, filter_mode = "each_group")
 }
@@ -20,7 +18,6 @@ in at least one group; "total": perc_na across all samples.}
 summarized experiment without entries with too many missing values
 }
 \description{
-filter_perseus()
 Filters proteins with too many missing values. Parameters mimic the options
 given by Perseus.
 }

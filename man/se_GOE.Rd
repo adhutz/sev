@@ -2,9 +2,7 @@
 % Please edit documentation in R/main.R
 \name{se_GOE}
 \alias{se_GOE}
-\title{se_GOE()
-Performs GO-term enrichment via clusterprofiler for all contrasts of a summarized experiment.
-Results are added to the metadata.}
+\title{se_GOE()}
 \usage{
 se_GOE(
   se,
@@ -35,7 +33,6 @@ se_GOE(
 se with GO-term enrichment in metadata
 }
 \description{
-se_GOE()
 Performs GO-term enrichment via clusterprofiler for all contrasts of a summarized experiment.
 Results are added to the metadata.
 }

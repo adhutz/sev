@@ -2,15 +2,7 @@
 % Please edit documentation in R/main.R
 \name{add_randna}
 \alias{add_randna}
-\title{add_randna()
-Add column to rowData that specifies for each row if values are missing at random or
-not. The method is very rudimentary:
-\enumerate{
-\item Missing values are replaced by zeros, measured values by 1.
-\item ANOVA between conditions is performed to determine significant differences
-of the mean.
-\item Rows with p-values < 0.05 are termed missing not at random.
-}}
+\title{add_randna()}
 \usage{
 add_randna(se)
 }
@@ -21,7 +13,6 @@ add_randna(se)
 se with added rowData column
 }
 \description{
-add_randna()
 Add column to rowData that specifies for each row if values are missing at random or
 not. The method is very rudimentary:
 \enumerate{

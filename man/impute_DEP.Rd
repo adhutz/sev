@@ -2,9 +2,7 @@
 % Please edit documentation in R/main.R
 \name{impute_DEP}
 \alias{impute_DEP}
-\title{impute_DEP()
-Utilizes the DEP::impute() function to replace missing values. In addition, original raw data
-is retained in an additional assay.}
+\title{impute_DEP()}
 \usage{
 impute_DEP(
   se,
@@ -22,7 +20,6 @@ impute_DEP(
 se with imputed data in the main assay and raw data in another assay
 }
 \description{
-impute_DEP()
 Utilizes the DEP::impute() function to replace missing values. In addition, original raw data
 is retained in an additional assay.
 }

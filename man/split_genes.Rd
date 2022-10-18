@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{split_genes}
 \alias{split_genes}
-\title{Split_genes}
+\title{Split_genes()}
 \usage{
 split_genes(table, colname = "gene_names", keep_all = FALSE)
 }
@@ -18,5 +18,5 @@ only the first name/id is kept.}
 table with split entries
 }
 \description{
-Split_genes
+Split columns with multiple entries (need to be separated by a semicolon) into multiple rows with one entry each.
 }

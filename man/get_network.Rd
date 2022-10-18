@@ -9,6 +9,7 @@ get_network(
   species = 9606,
   expression_data = NA,
   expand = FALSE,
+  add_nodes = NA,
   network_type = "functional",
   score = 900,
   common_legend = FALSE,

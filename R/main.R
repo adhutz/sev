@@ -69,7 +69,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 
         filtered_terms<-data_long%>%
           group_by(name, condition)%>%
-          summarize(number_of_na=sum(is.na(intensity.x)), group_size=n()) %>%
+          summarize(number_of_na=sum(is.na(intensity)), group_size=n()) %>%
           filter(number_of_na<=round(group_size*perc_na))%>%
           ungroup()%>%
           select(name)%>%
@@ -80,7 +80,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
       if(filter_mode=="each_group"){
         filtered_terms<-data_long%>%
           group_by(name, condition)%>%
-          summarize(number_of_na=sum(is.na(intensity.x)), group_size=n())%>%
+          summarize(number_of_na=sum(is.na(intensity)), group_size=n())%>%
           filter(number_of_na<=round(group_size*perc_na))%>%
           mutate(n_data=length(unique(data_long$condition)))%>%
           group_by(name)%>%dplyr::filter(n()==n_data)%>%
@@ -92,7 +92,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 
         filtered_terms<-data_long%>%
           group_by(sample, name)%>%
-          summarize(m=mean(intensity.x))%>%ungroup()%>%
+          summarize(m=mean(intensity))%>%ungroup()%>%
           group_by(name)%>%
           summarise(number_of_na=sum(is.na(m)), group_size=n())%>%
           filter(number_of_na<=round(group_size*perc_na))%>%
@@ -118,7 +118,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 #' @param downshift shift of gaussian distribution
 #' @param per_col if distribution should be calculated per column (sample)
 #' or accross all samples
-#'
+#' 
 #' @return summarized experiment without missing values
 #' @importFrom dplyr group_by summarize filter ungroup select mutate_all mutate
 #' @importFrom BiocGenerics unique
@@ -127,27 +127,26 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 #'
 impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 
-  # Assumes missing data (in df) follows a narrowed and downshifted normal distribution
-  
+
   # 1. transform to long and set lfq_imputed = TRUE for all missing values
   df <- se %>%
     get_df_long() %>%
-    select(name, label, condition, intensity.x) %>%
+    select(sample, condition, intensity, name) %>%
     ungroup()%>%
-    mutate(lfq_imputed = ifelse(is.na(.$intensity.x), TRUE, FALSE))
+    mutate(lfq_imputed = ifelse(is.na(intensity), TRUE, FALSE))
 
   # 2. impute with the selected method
   if(per_col){
-    cols<-split(df, df$label)
+    cols<-split(df, df$sample)
 
     for (cols_ in names(cols)){
       set.seed(1)
-      temp = cols[[cols_]]$intensity.x
+      temp = cols[[cols_]]$intensity
       temp.sd = width * sd(temp, na.rm = TRUE)   # shrink sd width
       temp.mean = mean(temp, na.rm = TRUE) -
         downshift * sd(temp, na.rm = TRUE)   # shift mean of imputed values
       n.missing = sum(is.na(temp))
-      cols[[cols_]]$intensity.x[is.na(temp)] = stats::rnorm(n.missing, mean = temp.mean, sd = temp.sd)
+      cols[[cols_]]$intensity[is.na(temp)] = stats::rnorm(n.missing, mean = temp.mean, sd = temp.sd)
     }
 
     df <- do.call(rbind, cols)
@@ -156,7 +155,7 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 
   else{
     set.seed(1)
-    temp = df$intensity.x
+    temp = df$intensity
     temp.sd = width * sd(temp, na.rm = TRUE)   # shrink sd width
     temp.mean = mean(temp, na.rm = TRUE) -
       downshift * sd(temp, na.rm = TRUE)   # shift mean of imputed values
@@ -166,19 +165,18 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 
   # Calculate table with all values and another assay describing which values were imputed
   imp_val <- df  %>%
-    select(label, intensity.x, name) %>%
-    mutate(label = gsub("lfq_intensity_", "", label)) %>%
-    pivot_wider(names_from = "label", values_from = "intensity.x") %>%
+    select(sample, intensity, name) %>%
+    pivot_wider(names_from = "sample", values_from = "intensity") %>%
     as.data.frame() %>%
     select(-name)
 
   imp_yn <- df  %>%
-    select(label, lfq_imputed, name) %>%
-    pivot_wider(names_from = "label", values_from = "lfq_imputed") %>%
+    select(sample, lfq_imputed, name) %>%
+    pivot_wider(names_from = "sample", values_from = "lfq_imputed") %>%
     as.data.frame() %>%
     select(-name)
 
-  colnames(imp_yn) <- paste0(se$ID,"_imputed")
+  colnames(imp_yn) <- paste0(se$sample,"_imputed")
 
   # Add as assay
   se <- add_assay(se, imp_val %>% as.matrix(), name = "imputed_perseus", withDimnames = FALSE)
@@ -282,7 +280,7 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
                        filt = c("reverse", "only_identified_by_site", "potential_contaminant"), keep_all_proteins = F, keep_all_genes = F, experimental_design = ""){
 
   #ProteinGroups
-  data<-read.delim(file, sep="\t")
+  data <- read.delim(file, sep="\t")
 
   colnames(data) <- colnames(data) %>%
     tolower() %>%
@@ -293,7 +291,8 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
     mutate(orig_prot_ids = protein_ids,
            orig_gene_names = gene_names) %>%
     split_genes(colname = "protein_ids", keep_all = keep_all_proteins) %>%
-    split_genes(colname = "gene_names", keep_all = keep_all_genes)
+    split_genes(colname = "gene_names", keep_all = keep_all_genes) %>%
+    dplyr::rename("perseus_intensity" = "intensity")
 
   #Filter false and low quality hits
   data <- data %>% filter(!if_any(filt, ~ .x == "+"))
@@ -781,4 +780,83 @@ get_network <- function(genes, species = 9606, expression_data = NA, expand = FA
   
   return(result)
   
+}
+
+
+#' spectronaut_read_in()
+#' 
+#' Reads in MaxQuant or other output and creates a summarized experiment.
+#'
+#' @param file path to proteinGroups or similar file
+#' @param gene_column name of gene_name column after janitor
+#' @param protein_column name of protein column after janitor
+#' @param sep character describing the separator between sample name and replicate number (e.g. "_rep_", "_r")
+#' @param filt character vector of column names used for filtering. Genes with a "+" will be dropped.
+#' @param keep_all_proteins if FALSE, only first protein per protein-group is kept. If TRUE,
+#' entries are split in multiple rows
+#' @param keep_all_genes if FALSE, only first gene per protein-group is kept. If TRUE,
+#' entries are split in multiple rows
+#' @param experimental_design dataframe with information regarding samples. If not specified,
+#' sample names and groups are read automatically (start with "log2quantity_"), end with "_r" followed by
+#' replicate number.
+#' @return summarized experiment
+#' @export
+#' @importFrom dplyr group_by summarize filter ungroup select mutate mutate_all rename rename_all
+#' @importFrom BiocGenerics unique
+#' @importFrom tidyr pivot_wider
+#' @importFrom janitor make_clean_names clean_names
+#' @importFrom DEP make_unique
+#' @examples
+#' Mandatory columns: sample (sample name), condition (treatment), replicate
+#'
+spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "uni_prot_ids", sep="_rep_", keep_all_proteins = F, keep_all_genes = F, experimental_design = ""){
+  
+  #####read in data (spectronaut output from Fatih Demir)
+  df <- vroom::vroom(file, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
+    rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
+    janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
+    dplyr::rename_all(.funs = list(~gsub("pg_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
+    dplyr::rename("condition" = "r_condition", "file_name" = "r_file_name", "replicate" = "r_replicate") #remove the strange r_ from those three column names
+  
+  #turn dataframe (df) to wide format, which is required for summarised experiment (or perseus)
+  data <- df %>% 
+    mutate(cond_rep = paste0(condition, "_rep", replicate )) %>% # make yourself a new column with the condition and replicate pasted together
+    DEP::make_unique("genes", "uni_prot_ids", delim = ";") %>% #this is a function of DEP to make unique names of genes
+    select(cond_rep,ID,genes,uni_prot_ids,  protein_descriptions,log2quantity, ibaq) %>% #I just select these columns because otherwise the 'pivot_wider' function is not working because each row contains non-unique info so everything is matched to everything
+    tidyr::pivot_wider(names_from = cond_rep, values_from = c(log2quantity, ibaq)) %>% #make wide
+    select(-ID) %>% #now I remove the ID col that was added when I ran make_unique, because I need to make unique again, because later I will need both ID and Name column
+    DEP::make_unique("genes", "uni_prot_ids", delim = ";") %>% #re-run
+    janitor::clean_names() %>% #clean_up col-names
+    dplyr::rename(ID = id) %>% #clean up col names further
+    dplyr::rename_all(list(~as.character(gsub("0_2", "0p2", .)))) %>% #clean up further, as this underscore separation is annoying later on 
+    mutate_if(is.numeric, function(x) ifelse(is.infinite(x), NA, x)) %>% # turns Infinite to NA
+    mutate_if(is.numeric, function(x) ifelse(is.na(x), NA, x)) %>% #turns NaN to NA
+    mutate_if(is.numeric, function(x) 2^x) %>% #inverse log2 of all numerics (careful if you change to include anything else, like the ibaqs that have not been inverse log2)
+    mutate_if(is.numeric, function(x) ifelse(is.na(x), NA, x))  %>% #turns NaN to NA
+    dplyr::rename("gene_names" = gene_column,
+                  "protein_ids" = protein_column)
+  
+    #Split protein groups to single proteins, keep all
+  data <- data %>%
+    mutate(orig_prot_ids = protein_ids,
+           orig_gene_names = gene_names) %>%
+    split_genes(colname = "protein_ids", keep_all = keep_all_proteins) %>%
+    split_genes(colname = "gene_names", keep_all = keep_all_genes)
+  
+  if(!all(c("label", "sample", "condition", "replicate") %in% colnames(experimental_design))){
+    
+    LFQ_labels <- colnames(data)[grep("^log2quantity_", colnames(data))]
+    
+    experimental_design<-data.frame(label=LFQ_labels,
+                                    sample=gsub("^log2quantity_", "", LFQ_labels),
+                                    condition=gsub(paste0("^log2quantity_|",sep, "[0-9].*"), "", LFQ_labels),
+                                    replicate=gsub(paste0("^.*",sep,"(?=[0-9])"), "", LFQ_labels, perl = TRUE))
+  }else{
+    LFQ_labels<-experimental_design$label
+  }
+  
+  data_se <- make_se(data, which(colnames(data) %in% LFQ_labels), experimental_design)
+  rownames(data_se) <- data$name
+  names(assays(data_se)) <- "lfq_raw"
+  return(data_se)
 }

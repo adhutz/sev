@@ -800,7 +800,6 @@ get_network <- function(genes, species = 9606, expression_data = NA, expand = FA
 #' sample names and groups are read automatically (start with "log2quantity_"), end with "_r" followed by
 #' replicate number.
 #' @return summarized experiment
-#' @export
 #' @importFrom dplyr group_by summarize filter ungroup select mutate mutate_all rename rename_all
 #' @importFrom BiocGenerics unique
 #' @importFrom tidyr pivot_wider
@@ -808,7 +807,8 @@ get_network <- function(genes, species = 9606, expression_data = NA, expand = FA
 #' @importFrom DEP make_unique
 #' @examples
 #' Mandatory columns: sample (sample name), condition (treatment), replicate
-#'
+#' @export
+
 spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "uni_prot_ids", sep="_rep_", keep_all_proteins = F, keep_all_genes = F, experimental_design = ""){
   
   #####read in data (spectronaut output from Fatih Demir)
@@ -860,3 +860,4 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
   names(assays(data_se)) <- "lfq_raw"
   return(data_se)
 }
+

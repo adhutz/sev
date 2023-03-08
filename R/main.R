@@ -821,8 +821,8 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
   #turn dataframe (df) to wide format, which is required for summarised experiment (or perseus)
   data <- df %>% 
     mutate(cond_rep = paste0(condition, "_rep", replicate )) %>% # make yourself a new column with the condition and replicate pasted together
-    DEP::make_unique("genes", "uni_prot_ids", delim = ";") %>% #this is a function of DEP to make unique names of genes
-    select(cond_rep,ID,genes,uni_prot_ids,  protein_descriptions,log2quantity, ibaq) %>% #I just select these columns because otherwise the 'pivot_wider' function is not working because each row contains non-unique info so everything is matched to everything
+    DEP::make_unique("genes", "uni_prot_ids", delim = ";") %>%#this is a function of DEP to make unique names of genes
+    select(cond_rep, ID,genes,uni_prot_ids,  protein_descriptions,log2quantity, ibaq) %>% #I just select these columns because otherwise the 'pivot_wider' function is not working because each row contains non-unique info so everything is matched to everything
     tidyr::pivot_wider(names_from = cond_rep, values_from = c(log2quantity, ibaq)) %>% #make wide
     select(-ID) %>% #now I remove the ID col that was added when I ran make_unique, because I need to make unique again, because later I will need both ID and Name column
     DEP::make_unique("genes", "uni_prot_ids", delim = ";") %>% #re-run
@@ -845,12 +845,18 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
   
   if(!all(c("label", "sample", "condition", "replicate") %in% colnames(experimental_design))){
     
+    filename <- df %>% 
+      mutate(cond_rep = paste0(tolower(condition), "_rep", replicate )) %>%
+      select(file_name, cond_rep) %>%
+      unique() 
+    
     LFQ_labels <- colnames(data)[grep("^log2quantity_", colnames(data))]
     
     experimental_design<-data.frame(label=LFQ_labels,
                                     sample=gsub("^log2quantity_", "", LFQ_labels),
                                     condition=gsub(paste0("^log2quantity_|",sep, "[0-9].*"), "", LFQ_labels),
-                                    replicate=gsub(paste0("^.*",sep,"(?=[0-9])"), "", LFQ_labels, perl = TRUE))
+                                    replicate=gsub(paste0("^.*",sep,"(?=[0-9])"), "", LFQ_labels, perl = TRUE)) %>%
+      merge(filename, by.x = "sample", by.y = "cond_rep")
   }else{
     LFQ_labels<-experimental_design$label
   }

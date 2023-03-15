@@ -335,15 +335,16 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
 #' @export
 add_randna <- function(se){
 
-  # replace na with 0, values with 1
-  dummy <- as.matrix(ifelse(is.na(assay(se)), 0,1))
-
-  #ANOVA
-  oa <- HybridMTest::row.oneway.anova(dummy, colData(se)$condition)
-
-  #Add information regarding mode of missingness (MAR = TRUE)
-  rowData(se)$randna<-ifelse(is.na(oa$pval), FALSE, ifelse(oa$pval<0.05, FALSE, TRUE))
-
+  proteins_MNAR <- get_df_long(se) %>%
+    group_by(name, condition) %>%
+    summarize(NAs = all(is.na(intensity))) %>% 
+    filter(NAs) %>% 
+    pull(name) %>% 
+    unique()
+  ?pull()
+  # Get a logical vector
+  rowData(se)$randna <- !names(se) %in% proteins_MNAR
+  
   return(se)
 }
 
@@ -846,9 +847,10 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
   if(!all(c("label", "sample", "condition", "replicate") %in% colnames(experimental_design))){
     
     filename <- df %>% 
-      mutate(cond_rep = paste0(tolower(condition), "_rep", replicate )) %>%
+      mutate(cond_rep = paste0(tolower(condition), "_rep", replicate)) %>%
       select(file_name, cond_rep) %>%
-      unique() 
+      unique() %>%
+      mutate(cond_rep = janitor::make_clean_names(cond_rep))
     
     LFQ_labels <- colnames(data)[grep("^log2quantity_", colnames(data))]
     
@@ -856,7 +858,7 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
                                     sample=gsub("^log2quantity_", "", LFQ_labels),
                                     condition=gsub(paste0("^log2quantity_|",sep, "[0-9].*"), "", LFQ_labels),
                                     replicate=gsub(paste0("^.*",sep,"(?=[0-9])"), "", LFQ_labels, perl = TRUE)) %>%
-      merge(filename, by.x = "sample", by.y = "cond_rep")
+      merge(filename, by.x = "sample", by.y = "cond_rep", all = T)
   }else{
     LFQ_labels<-experimental_design$label
   }
@@ -867,3 +869,57 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
   return(data_se)
 }
 
+
+
+
+#' fragpipe_read_in()
+#' 
+#' Reads in MaxQuant or other output and creates a summarized experiment.
+#'
+#' @param file path to proteinGroups or similar file
+#' @param gene_column name of gene_name column after janitor
+#' @param protein_column name of protein column after janitor
+#' @param sep character describing the separator between sample name and replicate number (e.g. "_rep_", "_r")
+#' @param experimental_design dataframe with information regarding samples. If not specified,
+#' sample names and groups are read automatically (start with "log2quantity_"), end with "_r" followed by
+#' replicate number.
+#' @return summarized experiment
+#' @importFrom dplyr group_by summarize filter ungroup select mutate mutate_all rename rename_all
+#' @importFrom BiocGenerics unique
+#' @importFrom tidyr pivot_wider
+#' @importFrom janitor make_clean_names clean_names
+#' @importFrom DEP make_unique
+#' @examples
+#' Mandatory columns: sample (sample name), condition (treatment), replicate
+#' @export
+
+fragpipe_read_in <- function(file, gene_column = "gene", protein_column = "protein_id", sep="_rep_", experimental_design = ""){
+  
+  #####read in data (spectronaut output from Fatih Demir)
+  df <- vroom::vroom(file, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
+    rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
+    janitor::clean_names() #make column names clean and unique (makes later coding easier)
+    
+  #turn dataframe (df) to wide format, which is required for summarised experiment (or perseus)
+  data <- df %>% 
+    dplyr::rename("gene_names" = gene_column,
+                  "protein_ids" = protein_column) %>%
+    make_unique("gene_names", "protein_ids")
+  
+  if(!all(c("label", "sample", "condition", "replicate") %in% colnames(experimental_design))){
+    
+    LFQ_labels <- colnames(data)[grep(".*_max_lfq_intensity", colnames(data))]
+    
+    experimental_design<-data.frame(label=LFQ_labels,
+                                    sample=gsub("_max_lfq_intensity", "", LFQ_labels),
+                                    condition=gsub(paste0("_max_lfq_intensity|",sep, "[0-9]*"), "", LFQ_labels),
+                                    replicate=gsub(paste0("_max_lfq_intensity|^.*",sep,"(?=[0-9])"), "", LFQ_labels, perl = TRUE)) 
+    }else{
+    LFQ_labels<-experimental_design$label
+  }
+  
+  data_se <- make_se(data, which(colnames(data) %in% LFQ_labels), experimental_design)
+  rownames(data_se) <- data$name
+  names(assays(data_se)) <- "lfq_raw"
+  return(data_se)
+}

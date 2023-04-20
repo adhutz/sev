@@ -288,8 +288,8 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
 
   #Split protein groups to single proteins, keep all
   data <- data %>%
-    mutate(orig_prot_ids = ,
-           orig_gene_names =  %>%
+    mutate(orig_prot_ids = protein_ids,
+           orig_gene_names = gene_names) %>%
     split_genes(colname = gene_column, keep_all = keep_all_proteins) %>%
     split_genes(colname = protein_column, keep_all = keep_all_genes) %>%
     dplyr::rename("perseus_intensity" = "intensity")

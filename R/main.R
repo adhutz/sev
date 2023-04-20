@@ -288,14 +288,14 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
 
   #Split protein groups to single proteins, keep all
   data <- data %>%
-    mutate(orig_prot_ids = protein_ids,
-           orig_gene_names = gene_names) %>%
-    split_genes(colname = "protein_ids", keep_all = keep_all_proteins) %>%
-    split_genes(colname = "gene_names", keep_all = keep_all_genes) %>%
+    mutate(orig_prot_ids = ,
+           orig_gene_names =  %>%
+    split_genes(colname = gene_column, keep_all = keep_all_proteins) %>%
+    split_genes(colname = protein_column, keep_all = keep_all_genes) %>%
     dplyr::rename("perseus_intensity" = "intensity")
 
   #Filter false and low quality hits
-  data <- data %>% filter(!if_any(filt, ~ .x == "+"))
+  data <- data %>% filter(if_all(filt, ~ is.na(.x)))
 
   #Make gene_names unique
   data_unique <- make_unique(data, "gene_names", "protein_ids", delim=";")
@@ -318,6 +318,7 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
   return(data_se)
 }
 
+
 #' add_randna()
 #' 
 #' Add column to rowData that specifies for each row if values are missing at random or
@@ -334,19 +335,19 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
 #' @importFrom fdrtool gcmlcm
 #' @export
 add_randna <- function(se){
-
-  proteins_MNAR <- get_df_long(se) %>%
-    group_by(name, condition) %>%
-    summarize(NAs = all(is.na(intensity))) %>% 
-    filter(NAs) %>% 
-    pull(name) %>% 
-    unique()
-  ?pull()
-  # Get a logical vector
-  rowData(se)$randna <- !names(se) %in% proteins_MNAR
+  
+  # replace na with 0, values with 1
+  dummy <- as.matrix(ifelse(is.na(assay(se)), 0,1))
+  
+  #ANOVA
+  oa <- HybridMTest::row.oneway.anova(dummy, colData(se)$condition)
+  
+  #Add information regarding mode of missingness (MAR = TRUE)
+  rowData(se)$randna<-ifelse(is.na(oa$pval), FALSE, ifelse(oa$pval<0.05, FALSE, TRUE))
   
   return(se)
 }
+
 
 #' se_GOE()
 #' 
@@ -715,7 +716,9 @@ get_network <- function(genes, species = 9606, expression_data = NA, expand = FA
                                                         add_nodes = ifelse(is.na(add_nodes),
                                                                            0,
                                                                            add_nodes))
-  }  
+  } 
+  
+  if(ncol(int_net > 0)){
   
   # get stringIDs for all proteins of the expression table
   all_prots <- expression_data$gene_names %>% unlist() %>%
@@ -780,7 +783,9 @@ get_network <- function(genes, species = 9606, expression_data = NA, expand = FA
                                 "add_nodes" = add_nodes))
   
   return(result)
-  
+  }else{
+    return(NULL)
+  }
 }
 
 

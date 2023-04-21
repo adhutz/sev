@@ -197,6 +197,7 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 #'
 #' @param se summarized experiment
 #' @param contrast_ contrast
+#' @param id_col id column
 #'
 #' @return volcano plot
 #' @importFrom ggplot2 ggplot geom_point scale_color_manual theme_bw labs lims

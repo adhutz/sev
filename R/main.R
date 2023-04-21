@@ -203,17 +203,17 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 #' @importFrom ggrepel geom_text_repel
 #'
 
-se_volcano<-function(se, contrast_){
+se_volcano<-function(se, contrast_, id_col = "gene_names"){
   LFC <- rowData(se)[,paste0(contrast_, "_diff")]
   p <- rowData(se)[,paste0(contrast_, "_p.val")]%>%-log2(.)
   p.adj <- rowData(se)[,paste0(contrast_, "_p.adj")]%>%-log2(.)
   sig <- rowData(se)[,paste0(contrast_, "_significant")]
-
+  
   change<-ifelse(sig & (LFC>0), "Increase",
                  ifelse(sig & (LFC < 0), "Decrease","None"))
-
-  df <- data.frame(LFC,p,sig,change, "SYMBOL"=rowData(se)$gene_names)
-
+  
+  df <- data.frame(LFC,p,sig,change, "SYMBOL" = rowData(se)[[id_col]])
+  
   #Calculate the axis limits
   ex_x<-max(LFC)%>%ceiling(.)
   ex_y<-max(p)%>%ceiling(.)
@@ -226,9 +226,9 @@ se_volcano<-function(se, contrast_){
     theme_bw()+
     labs(x="Log2 fold-change", y="-log2 (p-value)", color="Change", title=paste("Volcano plot -", contrast_))+
     lims(x=c(-ex_x, ex_x), y=c(0, ex_y))
-
+  
   return(plot)
-
+  
 }
 
 #' Split_genes()

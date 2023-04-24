@@ -270,7 +270,7 @@ split_genes <- function(table, colname="gene_names", keep_all=FALSE){
 #' replicate number.
 #' @return summarized experiment
 #' @export
-#' @importFrom dplyr group_by summarize filter ungroup select mutate mutate_all
+#' @importFrom dplyr group_by summarize filter ungroup select mutate mutate_all if_all
 #' @importFrom BiocGenerics unique
 #' @importFrom tidyr pivot_wider
 #' @importFrom janitor make_clean_names

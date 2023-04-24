@@ -296,10 +296,10 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
     dplyr::rename("perseus_intensity" = "intensity")
 
   #Filter false and low quality hits
-  data <- data %>% filter(if_all(filt, ~ is.na(.x)))
-
+  data <- data %>% filter(if_all(filt, ~ .x == ""))
+  
   #Make gene_names unique
-  data_unique <- make_unique(data, "gene_names", "protein_ids", delim=";")
+  data_unique <- make_unique(data, gene_column, protein_column, delim=";")
 
   if(!all(c("label", "sample", "condition", "replicate") %in% colnames(experimental_design))){
 

@@ -937,18 +937,19 @@ fragpipe_read_in <- function(file, gene_column = "gene", protein_column = "prote
 #' @param col_x string column name of x-axis data 
 #' @param col_y string column name of y-axis data
 #' @param col_label string column name of labels
-#' @param show_labels = Boolean show labels on plot
+#' @param show_labels Boolean show labels on plot
 #' @param title string plot title
 #' @param standard_dev int difference to sd that specifies highlighted entries 
 #' @param window rolling window for which sd is calculated
-#' @return list containing the scatterplot and df for highlighted entries
-#' 
+#' @return list containing the scatterplot and dfs for highlighted entries
 #' @importFrom dplyr group_by summarize filter ungroup select mutate mutate_all rename rename_all
 #' @importFrom stats cor.test
 #' @importFrom ggrepel geom_text_repel
-#' @export
-#'
+#' @importFrom DescTools Closest
+#' @importFrom stringr str_wrap
 #' @examples
+#' @export
+
 scatterPlot <- function(df, col_x, col_y, col_label = "gene_names", show_labels = TRUE, title = "", standard_dev=2, window=1) {
   x <- df[,col_x]
   y <- df[,col_y]

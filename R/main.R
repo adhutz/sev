@@ -929,3 +929,108 @@ fragpipe_read_in <- function(file, gene_column = "gene", protein_column = "prote
   names(assays(data_se)) <- "lfq_raw"
   return(data_se)
 }
+
+
+#' scatterPlot
+#'
+#' @param df data for plotting
+#' @param col_x string column name of x-axis data 
+#' @param col_y string column name of y-axis data
+#' @param col_label string column name of labels
+#' @param show_labels = Boolean show labels on plot
+#' @param title string plot title
+#' @param standard_dev int difference to sd that specifies highlighted entries 
+#' @param window rolling window for which sd is calculated
+#' @return list containing the scatterplot and df for highlighted entries
+#' 
+#' @importFrom dplyr group_by summarize filter ungroup select mutate mutate_all rename rename_all
+#' @importFrom stats cor.test
+#' @importFrom ggrepel geom_text_repel
+#' @export
+#'
+#' @examples
+scatterPlot <- function(df, col_x, col_y, col_label = "gene_names", show_labels = TRUE, title = "", standard_dev=2, window=1) {
+  x <- df[,col_x]
+  y <- df[,col_y]
+  col_label <- df[,col_label]
+  mod = lm(y~x)
+  slope=mod$coefficients["x"]
+  intercept=if (is.na(mod$coefficients["(Intercept)"])) 0 else mod$coefficients["(Intercept)"]
+  angle = atan(slope)
+  
+  rotate = function (x,y, theta, intercept){
+    c(cos(theta) * x + sin(theta) * (y-intercept),
+      -sin(theta) * x + cos(theta) * (y-intercept))
+  }
+  
+  ## Rotate so that slope is 0
+  rot = mapply(rotate, x, y, angle, intercept)
+  xp = rot[1,]
+  yp = rot[2,]
+  
+  ## Compute standard deviation along the x axis at position pos,
+  ## for data in a given window (a lower window will be less smooth)
+  sdWindow = function (pos, window, x, y) {
+    sel = which (x >= pos-window/2 & x <= pos+window/2) 
+    sd(y[sel], na.rm = TRUE)
+  }
+  
+  xsd = seq(min(xp, na.rm = TRUE),max(xp, na.rm = TRUE), length=100)
+  ysd = sapply(xsd, sdWindow, window, xp, yp)
+  
+  ## Transform back the data, and two curves for the + and - standard dev
+  xpp = mapply(rotate, xp, yp, -angle, -intercept)
+  sdp = mapply(rotate, xsd, standard_dev*ysd, -angle, -intercept)
+  sdm = mapply(rotate, xsd, -standard_dev*ysd, -angle, -intercept)
+  
+  sdpdf = data.frame(x=sdp[1,], y=sdp[2,])
+  sdmdf = data.frame(x=sdm[1,], y=sdm[2,])
+  
+  cbPalette <- c("#dddddd","#0000ff", "#00ff00")
+  df = data.frame(x=x, y=y)
+  
+  up<-data.frame("x"=lapply(df$x, function(i) min(Closest(x=sdpdf$x,a=i)))%>%unlist(),"x_old"=df$x,"y"=df$y, "col_label"=col_label)
+  up_col_labels<-merge(up,sdpdf, by="x")%>%filter(y.x>=y.y)
+  
+  down<-data.frame("x"=lapply(df$x, function(i) min(Closest(x=sdmdf$x,a=i)))%>%unlist(),"x_old"=df$x,"y"=df$y, "col_label"=col_label)
+  down_col_labels<-merge(down,sdmdf, by="x")%>%filter(y.x<=y.y)
+  
+  pearson<-cor.test(x,y)
+  
+  p = ggplot(df, aes(x=x, y=y))
+  
+  if(show_labels == TRUE){
+    p <- p + geom_point (shape=20, color="black", size=3, alpha = 0.5) +
+      geom_abline (intercept=intercept, slope=mod$coefficients["x"], color="darkgrey", linetype=2) +
+      geom_line (data=sdpdf, aes(x=x, y=y), color="red", alpha=0.5,linetype=2, size=1) +
+      geom_line (data=sdmdf, aes(x=x, y=y), color="blue", alpha=0.5, linetype=2, size=1) +
+      
+      #scale_colour_manual(values=cbPalette) +
+      scale_size_manual(values=c(2,3)) +
+      geom_point(data=up_col_labels, aes(x=x_old, y=y.x), colour="red")+
+      geom_text_repel(data=up_col_labels, aes(x=x_old, y=y.x,label=col_label), nudge_y = 0.1,fill = alpha(c("white"),0.3), label.padding = 0.5, size=3, max.overlaps = Inf)+
+      geom_point(data=down_col_labels, aes(x=x_old, y=y.x), colour="blue")+
+      geom_text_repel(data=down_col_labels, aes(x=x_old, y=y.x,label=str_wrap(col_label,30)),nudge_y=-0.2,fill = alpha(c("white"),0.3), label.padding = 0.5, size=3, max.overlaps = Inf)+
+      geom_label(aes(x=ifelse(any(up_col_labels$x_old<= -0.5), 0.7,-1),y=0.8),label=paste("r: ",as.character(signif(pearson$estimate,digits=3)) , "\np-value: ",as.character(signif(pearson$p.value, digits=3))), hjust=0, fontface="bold", max.overlaps = Inf)+
+      theme_bw () + 
+      theme(plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), legend.position = "none", 
+            axis.title = element_text(face="bold", lineheight=0.6))+
+      labs(x=col_x, y=col_y, title=title)
+  }else{
+    p <- p + geom_point (shape=20, color="black", size=3, alpha = 0.5) +
+      geom_abline (intercept=intercept, slope=mod$coefficients["x"], color="darkgrey", linetype=2) +
+      geom_line (data=sdpdf, aes(x=x, y=y), color="red", alpha=0.5,linetype=2, size=1) +
+      geom_line (data=sdmdf, aes(x=x, y=y), color="blue", alpha=0.5, linetype=2, size=1) +
+      
+      #scale_colour_manual(values=cbPalette) +
+      scale_size_manual(values=c(2,3)) +
+      geom_point(data=up_col_labels, aes(x=x_old, y=y.x), colour="red")+
+      geom_point(data=down_col_labels, aes(x=x_old, y=y.x), colour="blue")+
+      geom_label(aes(x=ifelse(any(up_col_labels$x_old<= -0.5), 0.7,-1),y=0.8),label=paste("r: ",as.character(signif(pearson$estimate,digits=3)) , "\np-value: ",as.character(signif(pearson$p.value, digits=3))), hjust=0, fontface="bold", max.overlaps = Inf)+
+      theme_bw () + 
+      theme(plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), legend.position = "none", 
+            axis.title = element_text(face="bold", lineheight=0.6))+
+      labs(x=col_x, y=col_y, title=title)    
+  }
+  return(list(plot = p, up_col_labels = up_col_labels, down_col_labels = down_col_labels))
+}

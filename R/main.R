@@ -1142,7 +1142,7 @@ phos_read_in_int <- function(file, gene_column = "gene_names", protein_column = 
 #'
 #' # Read and process the data
 #' data_se <- phos_read_in_occ(input_file)
-#'
+#'@export
 phos_read_in_occ <- function(file, gene_column = "gene_names", protein_column = "proteins", sep="_rep_", filt = c("reverse", "potential_contaminant"), keep_all_proteins = F, keep_all_genes = F, experimental_design = ""){
   
   data <- vroom::vroom(file, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names)
@@ -1296,6 +1296,7 @@ prep_ssgsea2 <- function(se, file = ""){
 #' 
 #' # To select all assays
 #' result_all <- to_long(se)
+#' @export
 to_long <- function(se, assays_ = c("")){
   
   if(length(assays_) == 0){
@@ -1324,6 +1325,7 @@ to_long <- function(se, assays_ = c("")){
 #' @examples
 #' # Assuming 'se' is a SummarizedExperiment object
 #' get_coldata(se)
+#' @export
 get_coldata <- function(se) {
   return(as.data.frame(colData(se)))
 }
@@ -1335,6 +1337,7 @@ get_coldata <- function(se) {
 #' @examples
 #' # Assuming 'se' is a SummarizedExperiment object
 #' get_rowdata(se)
+#' @export
 get_rowdata <- function(se) {
   return(as.data.frame(rowData(se)))
 }
@@ -1350,6 +1353,7 @@ get_rowdata <- function(se) {
 #' library(ggplot2)
 #' p <- ggplot(mtcars, aes(x = wt, y = mpg)) + geom_point()
 #' p + my_theme()
+#' @export
 my_theme <- function() {
   DEP::theme_DEP1() +
     theme(
@@ -1414,6 +1418,7 @@ add_sign <- function(se, p_thr = 0.05, diff_thr = 1){
 #' @examples
 #' # Example usage:
 #' # result <- long_test(se)
+#' @export
 long_test <- function(se){
   
   res <- se %>% 
@@ -1436,3 +1441,216 @@ long_test <- function(se){
   return(res)
 }
 
+#' Create a clustered heatmap from a given SummarizedExperiment object
+#'
+#' @param se A SummarizedExperiment object.
+#' @param indicate A character string indicating the variable to be used for annotation.
+#' @param type A character string indicating the type of heatmap.
+#' @param k An integer specifying the number of clusters to be used in k-means clustering.
+#' @param ... Additional arguments to be passed to the underlying complexHeatmap::Heatmap function.
+#' 
+#' @return A list containing the heatmap plot, a data frame with the heatmap data, and a data frame with the protein clusters.
+#'
+#' @importFrom DEP plot_heatmap
+#' @importFrom gdata cbindX
+#' @importFrom dplyr select
+#' @export
+#' @examples
+#' # Assuming se_diff is a SummarizedExperiment object with appropriate data
+#' result <- clustered_heatmap(se_diff, indicate = "condition", type = "centered", k = 5)
+#' result$plot
+#' result$df
+#' result$clusters
+clustered_heatmap <- function(se, indicate = "condition", type = "centered", k = 3, ...){
+  p_heatmap <- se %>% DEP::plot_heatmap(indicate = indicate, type = type, kmeans = TRUE, k = k)  
+
+  p_heatmap_data <- se %>% DEP::plot_heatmap(indicate = indicate, type = type, kmeans = TRUE, k = k, plot = FALSE)  
+  
+  split <- p_heatmap_data %>% select(k, protein) %>% split.data.frame(.$k)
+  split <- lapply(split, function(x) select(x,protein))
+  
+  split_df <- do.call(gdata::cbindX, split)
+  colnames(split_df) <- paste0("cluster_", 1:length(split))
+  rownames(split_df) <- NULL
+  
+  return(list("plot" = p_heatmap, "df" = p_heatmap_data, "clusters" = split_df))
+}
+
+#' Perform Over-representation Analysis (ORA) on Phosphoproteomics Data
+#'
+#' This function takes a SummarizedExperiment object and conducts Over-representation Analysis (ORA) on proteins with at least one significant phosphosite, using the clusterProfiler package.
+#'
+#' @param se A SummarizedExperiment object containing phosphoproteomics data.
+#' @param contr A character vector specifying the contrasts to be analyzed. Default is "all".
+#' @param OrgDb A character string specifying the organism database to be used. Default is "org.Hs.eg.db".
+#' @param pvalueCutoff Numeric value for the p-value cutoff. Default is 0.4.
+#' @param qvalueCutoff Numeric value for the q-value cutoff. Default is 0.8.
+#' @param ont A character vector specifying the Gene Ontology (GO) categories to be analyzed. Default is c("BP", "MF", "CC").
+#' @return A list containing the ora object, a combined dataframe and a ggplot depicting terms with q < 0.2
+#' @import dplyr
+#' @import ggplot2
+#' @importFrom clusterProfiler enrichGO
+#' @importFrom DOSE parse_ratio
+#' @export
+phospho_ora <- function(se, contr = "all", OrgDb = "org.Hs.eg.db", pvalueCutoff = 0.4, qvalueCutoff = 0.8, ont = c("BP", "MF", "CC")){
+  
+  se_diff_test <- se %>% long_test()
+  if(!contr == "all"){
+    se_diff_test <- se_diff_test %>% filter(contrast %in% contr)
+  }
+  
+  # Get significant genes
+  sign_genes <- se_diff_test %>% filter(significant == TRUE) %>% select(gene_names, contrast, diff)  %>% distinct(gene_names, .keep_all = TRUE) %>% group_by(contrast) %>% summarize(n = n(), gene_names = list(gene_names), diff = list(diff))
+  
+  # Get background
+  background <- se_diff_test$gene_names %>% unique()
+  
+  #Create list for ora
+  names(sign_genes$gene_names) <- sign_genes$contrast
+  
+  # Perform ORA via clusterProfiler for each contrast and ontology
+  ora_res <- list()
+  
+  for(ont_ in ont){
+    ora_res[[ont_]] <- lapply(sign_genes$gene_names, 
+                              clusterProfiler::enrichGO, 
+                              OrgDb = OrgDb, 
+                              keyType = "SYMBOL", 
+                              pvalueCutoff = pvalueCutoff,
+                              qvalueCutoff = qvalueCutoff,
+                              ont = ont_, 
+                              universe = background)
+    
+    for(sets_ in names(ora_res[[ont_]])){
+      ora_res[[ont_]][[sets_]] <- ora_res[[ont_]][[sets_]]@result %>% mutate(contrast = sets_, ont = ont_)
+    }
+  }
+  
+  # Create one large table storing the results
+  ora_res_df <- do.call("rbind", 
+                        lapply(ora_res, 
+                               function(x) do.call("rbind", x))
+  ) %>%
+    mutate(FoldEnrichment = DOSE::parse_ratio(GeneRatio) / DOSE::parse_ratio(BgRatio))
+  
+  #Keep only Terms that are significant at least once
+  ora_plot <- ora_res_df %>% filter(qvalue < 0.2) %>%
+    ggplot(aes(x = FoldEnrichment, 
+               y = reorder(Description, FoldEnrichment),
+               color = ifelse(pvalue < 0.05 & qvalue < 0.5, "Significant", "Non-significant"),
+               fill = contrast,
+               size = p.adjust))+
+    geom_point(shape = 21,
+               alpha = 0.5) +
+    scale_color_manual(values = c("grey", "black"))+
+    scale_size_continuous(range = c(5,2)) +
+    labs(title = "q < 0.5", color = "p < 0.05 & q < 0.5", fill = "contrast")+
+    facet_grid(ont ~., scales = "free_y", space = "free_y") +
+    # scale_color_manual(values = c("grey", "firebrick"))+
+    geom_segment(aes(xend=0, yend = Description), color = "black", size = 0.1) +
+    theme_bw()
+  
+  return(list("res" = ora_res, "df" = ora_res_df, "plot" = ora_plot))
+}
+
+#' Write phosphoproteomics data to a file
+#'
+#' This function takes a SummarizedExperiment object, extracts the relevant
+#' data, and writes it to a file.
+#'
+#' @param se A SummarizedExperiment object containing phosphoproteomics data.
+#' @param file The filename where the resulting data should be saved (default: current directory).
+#' @return relevant data
+#' @importFrom dplyr select ends_with
+#' @importFrom DEP get_df_wide
+#' @export
+write_phos <- function(se, file = ""){
+  exp <- se %>% 
+    get_df_wide() %>%
+    select(name,
+           gene_names,
+           protein,
+           protein_names,
+           amino_acid, 
+           position,
+           multiplicity,
+           sequence_window,
+           ends_with(c("_diff","_p.val","p.adj","significant")),
+           2:(ncol(se))) 
+  
+  colnames(exp) <- gsub("_diff", "_log2FC", colnames(exp))
+  
+  if(!file == ""){
+    openxlsx::write.xlsx(exp, file = file)
+  }
+  
+  return(exp)
+  
+}
+
+#' Prepare KSEA input data from SummarizedExperiment object
+#'
+#' This function processes a SummarizedExperiment object and extracts relevant information
+#' for the given contrast. The output is a data frame containing Protein, Gene, Peptide, Residue.Both,
+#' p-value, and fold change (FC) columns, filtered to exclude rows with missing values.
+#'
+#' @param se A SummarizedExperiment object containing the input data.
+#' @param contrast A character string specifying the contrast of interest.
+#' @return A data frame with columns: Protein, Gene, Peptide, Residue.Both, p, and FC.
+#' @importFrom dplyr select filter mutate contains rename
+#' @importFrom rlang !! 
+#' @importFrom ggplot2 sym
+#' @export
+#' @examples
+#' # Assuming 'se' is a SummarizedExperiment object and 'contrast' is a character string
+#' # representing the contrast of interest:
+#' prep_ksea_data <- prep_ksea(se, contrast)
+prep_ksea <- function(se, contrast){
+  diff_ <- paste0(contrast, "_diff")
+  p_ <- paste0(contrast, "_p.val")
+  
+  rowData(se) %>% 
+    as.data.frame() %>%
+    select(proteins, 
+           gene_names, 
+           amino_acid, 
+           position,
+           contains(!! p_),
+           contains(!! diff_)) %>%
+    mutate(Residue.Both = paste0(amino_acid, position), 
+           Peptide = "NULL",
+           FC = 2^!!sym(diff_)) %>% 
+    dplyr::rename("Protein" = "proteins", 
+           "Gene" = "gene_names", 
+           "p" = p_) %>% 
+    select(Protein, 
+           Gene, 
+           Peptide, 
+           Residue.Both, 
+           p, 
+           FC)  %>% 
+    filter(!is.na(Gene)) %>%
+    return()
+}
+
+#' Extract the centered substring of a given length from an input string
+#'
+#' This function extracts a substring of length `n` from the center of the input string. If `n` is greater than the length of the input string,
+#' the entire input string is returned.
+#'
+#' @param input_string A character string from which the centered substring will be extracted.
+#' @param n An integer specifying the length of the substring to be extracted.
+#' @return A character string representing the centered substring of the input string.
+#' @export
+#' @examples
+#' center_substring("hello", 3) # returns "ell"
+#' center_substring("world", 2) # returns "or"
+#' center_substring("example", 7) # returns "example"
+center_substring <- function(input_string, n) {
+  string_length <- nchar(input_string)
+  
+  start_pos <- ifelse(n > string_length, 1, ceiling((string_length - n) / 2) + 1)
+  end_pos <- start_pos + n - 1
+  
+  return(substr(input_string, start_pos, end_pos))
+}

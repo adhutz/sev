@@ -1035,3 +1035,404 @@ scatterPlot <- function(df, col_x, col_y, col_label = "gene_names", show_labels 
   }
   return(list(plot = p, up_col_labels = up_col_labels, down_col_labels = down_col_labels))
 }
+
+
+#' Read in Phosphoproteomics Data and Perform Initial Processing
+#'
+#' This function reads in phosphoproteomics data from the "Phospho (STY)Sites.txt" MaxQuant output, processes it by splitting protein groups,
+#' filtering low-quality hits, and expanding the site table. It also creates site IDs and makes gene names unique. In the end, it returns a 
+#' SummarizedExperiment.
+#' Experimental design can be provided or generated automatically if not provided.
+#'
+#' @param file A string representing the file path of the tab-delimited phosphoproteomics data.
+#' @param gene_column A string representing the name of the gene column in the input data. Default is "gene_names".
+#' @param protein_column A string representing the name of the protein column in the input data. Default is "proteins".
+#' @param sep A string used as the separator for intensity columns in the input data. Default is "_rep_".
+#' @param filt A character vector containing the filters to apply for false and low-quality hits. Default is c("reverse", "potential_contaminant").
+#' @param keep_all_proteins A boolean indicating whether to keep all proteins when splitting protein groups. Default is FALSE.
+#' @param keep_all_genes A boolean indicating whether to keep all genes when splitting protein groups. Default is FALSE.
+#' @param experimental_design A data.frame containing the experimental design information. Default is an empty string.
+#' 
+#' @importFrom vroom vroom
+#' @importFrom janitor make_clean_names
+#' @importFrom dplyr select filter
+#' @importFrom dplyr filter
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom DEP make_se make_unique
+#' 
+#' @return A summarizedExperiment containing the phosphoproteomics data.
+#' @examples
+#' # Assuming "Phospho (STY)Sites.txt" is a valid MaxQuant phosphoproteomics data file
+#' processed_data <- phos_read_in_int("Phospho (STY)Sites.txt")
+#' @export
+phos_read_in_int <- function(file, gene_column = "gene_names", protein_column = "proteins", sep="_rep_", filt = c("reverse", "potential_contaminant"), keep_all_proteins = F, keep_all_genes = F, experimental_design = ""){
+  
+  data <- vroom::vroom(file, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names)
+  
+  #Split protein groups to single proteins, keep all
+  data <- data %>%
+    mutate(orig_prot_ids = .[[protein_column]],
+           orig_gene_names =  .[[gene_column]]) %>%
+    split_genes(colname = gene_column, keep_all = keep_all_proteins) %>%
+    split_genes(colname = protein_column, keep_all = keep_all_genes) %>%
+    dplyr::select(-contains("score"))
+  
+  #Filter false and low quality hits
+  data <- data %>% filter(if_all(filt, ~ is.na(.x)))
+  
+  # intensity columns
+  cols <- grep(paste0(".*",sep,"[0-9]*_[0-9]*$"), colnames(data), value = TRUE)
+  
+  #expand site_table
+  data <-  data %>% tidyr::pivot_longer(cols = cols, names_to = c("set", "multiplicity"), values_to = "int", names_pattern = "(.*)_([0-9]*)$") %>% mutate(set = gsub("intensity", "value", set)) %>% tidyr::pivot_wider(values_from = "int", names_from = "set")
+  
+  #create site id
+  data <- data %>% mutate(site_id = paste0(gene_names, "_", amino_acid, position), 
+                          site_id_mult = paste0(gene_names, "_", amino_acid, position, "_", multiplicity))
+  
+  #Make gene_names unique
+  data_unique <- make_unique(data, "site_id_mult", protein_column, delim=";")
+  
+  if(!all(c("label", "sample", "condition", "replicate") %in% colnames(experimental_design))){
+    
+    
+    labels <- grep(paste0("intensity_.*", sep, "[0-9]*$"), colnames(data), value = TRUE)
+    
+    experimental_design <- data.frame(label=labels, 
+                                      sample=gsub("intensity_", "", labels),
+                                      ID = gsub("intensity_", "", labels),
+                                      condition=gsub(paste0("intensity_|",sep, "[0-9]*"), "", labels),
+                                      replicate=gsub(paste0("^.*",sep,"(?=[0-9])"), "", labels, perl = TRUE))
+    
+  }else{
+    experimental_design <- data.frame(experimental_design)
+  }
+  
+  data_se <- DEP::make_se(data_unique, which(colnames(data_unique) %in% gsub("intensity", "value",labels)), experimental_design)
+  rownames(data_se) <- data_unique$name
+  names(assays(data_se)) <- "intensity_raw"
+  return(data_se)
+}
+
+#' Read in phosphoproteomics occupancy data and process it
+#'
+#' This function reads in phosphoproteomics occupancy data from the "Phospho (STY)Sites.txt" MaxQuant output,
+#' processes the data, filters false and low-quality hits, and returns a SummarizedExperiment object.
+#'
+#' @param file A character string specifying the input file path.
+#' @param gene_column A character string specifying the column name for gene names in the input file (default: "gene_names").
+#' @param protein_column A character string specifying the column name for protein names in the input file (default: "proteins").
+#' @param sep A character string specifying the separator for the replicate information in the column names (default: "_rep_").
+#' @param filt A character vector specifying the columns to filter for NA values (default: c("reverse", "potential_contaminant")).
+#' @param keep_all_proteins A logical value indicating whether to keep all proteins when splitting protein groups (default: FALSE).
+#' @param keep_all_genes A logical value indicating whether to keep all genes when splitting gene names (default: FALSE).
+#' @param experimental_design A data frame specifying the experimental design. If not provided, it will be generated based on the input data.
+#'
+#' @importFrom vroom vroom
+#' @importFrom janitor make_clean_names
+#' @importFrom dplyr select filter
+#' @importFrom dplyr filter
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom DEP make_se make_unique
+#' 
+#' @return A SummarizedExperiment object containing the processed phosphoproteomics occupancy data.
+#' @examples
+#' # Example input file path (replace with your own file path)
+#' input_file <- "path/to/your/input_file.tsv"
+#'
+#' # Read and process the data
+#' data_se <- phos_read_in_occ(input_file)
+#'
+phos_read_in_occ <- function(file, gene_column = "gene_names", protein_column = "proteins", sep="_rep_", filt = c("reverse", "potential_contaminant"), keep_all_proteins = F, keep_all_genes = F, experimental_design = ""){
+  
+  data <- vroom::vroom(file, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names)
+  
+  #Split protein groups to single proteins, keep all
+  data <- data %>%
+    mutate(orig_prot_ids = .[[protein_column]],
+           orig_gene_names =  .[[gene_column]]) %>%
+    split_genes(colname = gene_column, keep_all = keep_all_proteins) %>%
+    split_genes(colname = protein_column, keep_all = keep_all_genes)
+  
+  #Filter false and low quality hits
+  data <- data %>% filter(if_all(filt, ~ is.na(.x)))
+  
+  # intensity columns
+  labels <- colnames(data)[grepl("occupancy_", colnames(data)) &
+                             !grepl("occupancy_(ratio|error)", colnames(data))]
+  
+  #create site id
+  data <- data %>% mutate(site_id = paste0(gene_names, "_", amino_acid, position))
+  
+  #Make gene_names unique
+  data_unique <- make_unique(data, "site_id", protein_column, delim=";")
+  
+  #2^x because it is later log2 transformed
+  data_unique <- data_unique %>% mutate(across(all_of(labels), ~2^.x))
+  
+  if(!all(c("label", "sample", "condition", "replicate") %in% colnames(experimental_design))){
+    
+    experimental_design <- data.frame(label=labels, 
+                                      sample=gsub("occupancy_", "", labels),
+                                      ID = gsub("occupancy_", "", labels),
+                                      condition=gsub(paste0("occupancy_|",sep, "[0-9]*"), "", labels),
+                                      replicate=gsub(paste0("^.*",sep,"(?=[0-9])"), "", labels, perl = TRUE))
+    
+  }else{
+    experimental_design <- data.frame(experimental_design)
+  }
+  
+  data_se <- make_se(data_unique, which(colnames(data_unique) %in% labels), experimental_design)
+  rownames(data_se) <- data_unique$name
+  names(assays(data_se)) <- "occupancy"
+  
+  assay(data_se)[assay(data_se) == "NaN"] <- NA
+  return(data_se)
+}
+
+#' Convert a GCT object to a long format data frame
+#'
+#' This function takes a GCT object (or a file containing GCT data) and converts it to a long format data frame.
+#'
+#' @param gct A GCT object. If the file parameter is provided, this parameter will be ignored.
+#' @param file A file path to a GCT file. If provided, the function will parse the GCT data from the file. Default is an empty string.
+#' @return A long format data frame with columns for id.y, id.x, and metadata.
+#' 
+#' @importFrom cmapR parse_gctx melt_gct
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom plyr colwise
+#' @importFrom dplyr filter
+#' 
+#' @examples
+#' # Use an example GCT object from cmapR package
+#' example_gct <- cmapR::example_gct
+#' long_format_data <- gct_to_long(example_gct)
+#' head(long_format_data)
+#' @export
+gct_to_long <- function(gct, file = ""){
+  
+  if(!file == ""){
+    gct <- cmapR::parse_gctx(file)
+  }
+  
+  m <- cmapR::melt_gct(gct)
+  
+  m <- m %>% 
+    tidyr::pivot_longer(grep(paste(unique(.$id.y), 
+                                   collapse = "|"), 
+                             colnames(.)), 
+                        names_to = c("type", "set"), 
+                        values_to = "val", 
+                        names_pattern = paste0("^(.*)\\.(.*_[0-9]*)"), 
+                        values_transform = list(val = as.character)) %>% 
+    filter(set == id.y) %>% 
+    tidyr::pivot_wider(names_from = "type", 
+                       values_from = "val")
+  
+  m <- plyr::colwise(type.convert)(m)
+  
+}
+
+
+#' Prepare Data for Single Sample Gene Set Enrichment Analysis (ssGSEA)
+#'
+#' This function prepares the data from a SummarizedExperiment object for ssGSEA analysis. It removes duplicated rows based on the rowData sequence_window, creates a GCT object, and optionally writes the GCT object to a file.
+#'
+#' @param se A SummarizedExperiment object.
+#' @param file A character string indicating the file name to save the GCT object. Defaults to an empty string, which means the GCT object will not be saved to a file.
+#' @return A list with the following elements:
+#' \itemize{
+#'   \item{"data"}{A GCT object with the unique rows from the input SummarizedExperiment object.}
+#'   \item{"path"}{A character string indicating the path of the saved GCT file, if applicable.}
+#'   \item{"duplicated"}{A SummarizedExperiment object containing the duplicated rows removed from the input object.}
+#' }
+#' @importFrom cmap write_gct
+#' @examples
+#' # Create a SummarizedExperiment object (se) here
+#' # ...
+#' result <- prep_ssgsea2(se)
+#' result <- prep_ssgsea2(se, file = "output")
+#' @export
+prep_ssgsea2 <- function(se, file = ""){
+  
+  
+  rid <- gsub("^.{8}(.*).{8}$", 
+              "\\1-p", 
+              rowData(se)$sequence_window)
+  
+  dupl <- se[duplicated(rid),]
+  uni <- se[!duplicated(rid),]
+  
+  temp <- new("GCT", 
+              mat=assay(uni), 
+              rdesc=as.data.frame(rowData(uni)), 
+              cdesc=as.data.frame(colData(uni)), 
+              rid = gsub("^.{8}(.*).{8}$", 
+                         "\\1-p", 
+                         rowData(uni)$sequence_window))
+  
+  if(!file == ""){
+    cmapR::write_gct(temp, file)
+    return(list("data" = temp, "path" = paste0(file, "_n", ncol(se), "x", nrow(uni), ".gct"), "duplicated" = dupl))
+  } else{
+    return(list("data" = temp, "path" = paste0(file, "_n", ncol(se), "x", nrow(uni), ".gct"), "duplicated" = dupl))
+  }
+  
+}
+
+#' Convert a SummarizedExperiment object to a long format data frame
+#'
+#' This function takes a SummarizedExperiment object and converts it to a long format data frame.
+#' It allows the user to specify the assays to include in the output data frame.
+#'
+#' @param se A SummarizedExperiment object.
+#' @param assays_ A character vector of assay names to include in the output data frame. Default is an empty character vector, which selects all assays.
+#' @return A data frame in long format with assay values, rowData, and colData combined.
+#' @importFrom dplyr filter
+#' @importFrom tidyr pivot_longer
+#' @examples
+#' # Assuming 'se' is a SummarizedExperiment object
+#' result <- to_long(se, assays_ = c("assay1", "assay2"))
+#' 
+#' # To select all assays
+#' result_all <- to_long(se)
+to_long <- function(se, assays_ = c("")){
+  
+  if(length(assays_) == 0){
+    assays_ <- names(assays(se)) 
+  }
+  
+  df <- lapply(assays(se)[assays_], "as.data.frame")
+  
+  df <- do.call("cbind", df) %>% cbind(as.data.frame(rowData(se)))
+  
+  assays <- grep(paste(assays_, "\\.", sep = ""), colnames(df), value = TRUE) %>% gsub("\\..*","",.) %>% unique()
+  
+  df_ <- df %>% dplyr::select(-ID) %>% tidyr::pivot_longer(grep(paste(assays_,"\\.", sep = ""), colnames(df), value = TRUE), names_to = c("assays", "ID"), names_pattern = "(.*)\\.(.*)")
+  
+  df_ <- merge(df_, as.data.frame(colData(se)), by.x = "ID")
+  #%>% tidyr::pivot_longer(paste0("assay_",names(assays(se))))
+  
+  return(df_)
+}
+
+
+#' Get column data from a SummarizedExperiment object
+#'
+#' @param se A SummarizedExperiment object.
+#' @return A data.frame containing the column data.
+#' @examples
+#' # Assuming 'se' is a SummarizedExperiment object
+#' get_coldata(se)
+get_coldata <- function(se) {
+  return(as.data.frame(colData(se)))
+}
+
+#' Get row data from a SummarizedExperiment object
+#'
+#' @param se A SummarizedExperiment object.
+#' @return A data.frame containing the row data.
+#' @examples
+#' # Assuming 'se' is a SummarizedExperiment object
+#' get_rowdata(se)
+get_rowdata <- function(se) {
+  return(as.data.frame(rowData(se)))
+}
+
+#' Custom theme for ggplot2
+#'
+#' This function applies a custom theme to a plot by combining the DEP::theme_DEP1()
+#' function with additional theme elements.
+#'
+#' @return A ggplot2 theme object.
+#' @importFrom DEP theme_DEP1
+#' @examples
+#' library(ggplot2)
+#' p <- ggplot(mtcars, aes(x = wt, y = mpg)) + geom_point()
+#' p + my_theme()
+my_theme <- function() {
+  DEP::theme_DEP1() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+}
+
+#' Add Significance Information to a SummarizedExperiment Object
+#'
+#' This function takes a SummarizedExperiment object, calculates significance information,
+#' and adds it to the rowData.
+#'
+#' @param se A SummarizedExperiment object.
+#' @param p_thr A numeric value for the p-value threshold (default: 0.05).
+#' @param diff_thr A numeric value for the difference threshold (default: 1).
+#' @return A SummarizedExperiment object with added significance information.
+#' @importFrom dplyr select filter mutate
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @examples
+#' # Assuming 'se' is a SummarizedExperiment object
+#' se_with_sign <- add_sign(se)
+#' @export
+add_sign <- function(se, p_thr = 0.05, diff_thr = 1){
+  se_long <- get_rowdata(se) %>% 
+  dplyr::select(c(site_id_mult, 
+                  ends_with("_diff"), 
+                  ends_with("p.adj"), 
+                  ends_with("p.val"), 
+                  ends_with("CI.L"), 
+                  ends_with("CI.R"))) %>% 
+    tidyr::pivot_longer(cols = -site_id_mult, 
+                        names_to = c("label", "type"), 
+                        values_to = "value", 
+                        names_pattern = "(.*)_(.*)") %>% 
+    filter(!label == "score") %>%
+    tidyr::pivot_wider(names_from = "type", 
+                       values_from = "value") %>% 
+    mutate(significant = ifelse(p.adj < p_thr & (diff > diff_thr | diff < -diff_thr), TRUE, FALSE)) %>% 
+    tidyr::pivot_wider(names_from = "label", 
+                       values_from = c("p.val","p.adj", "significant", "diff", "CI.L", "CI.R"), 
+                       names_glue = "{label}_{.value}") %>% 
+    mutate(significant = ifelse(if_any(ends_with("significant"), ~ .x == TRUE), TRUE, FALSE)) %>%
+    dplyr::select(-site_id_mult)
+  
+  rowData(se)[, colnames(se_long)] <- NULL
+  
+  rowData(se) <- cbind(rowData(se), se_long)
+  
+  return(se)
+
+}
+
+#' Long Test Function
+#'
+#' This function returns test results for an se objectin long format.
+#'
+#' @param se An se object.
+#' @return A data frame.
+#' @importFrom dplyr get_rowdata select mutate
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom stringr ends_with
+#' @examples
+#' # Example usage:
+#' # result <- long_test(se)
+long_test <- function(se){
+  
+  res <- se %>% 
+    get_rowdata() %>% 
+    select(-significant) %>% 
+    tidyr::pivot_longer(c(ends_with("p.adj"), 
+                          ends_with("p.val"), 
+                          ends_with("_diff"), 
+                          ends_with("_significant"), 
+                          ends_with("CI.L"), 
+                          ends_with("CI.R")), 
+                        values_to = "val", 
+                        names_to = c("contrast", "pn"), 
+                        names_pattern = "(.*)_(.*)$") %>% 
+    tidyr::pivot_wider(names_from = "pn", 
+                       values_from = "val") %>% 
+    mutate(significant = ifelse(significant == 0, 
+                                FALSE, 
+                                TRUE))
+  return(res)
+}
+

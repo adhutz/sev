@@ -1533,22 +1533,27 @@ phospho_ora <- function(se, contr = "all", OrgDb = "org.Hs.eg.db", pvalueCutoff 
   ) %>%
     mutate(FoldEnrichment = DOSE::parse_ratio(GeneRatio) / DOSE::parse_ratio(BgRatio))
   
-  #Keep only Terms that are significant at least once
-  ora_plot <- ora_res_df %>% filter(qvalue < 0.2) %>%
-    ggplot(aes(x = FoldEnrichment, 
-               y = reorder(Description, FoldEnrichment),
-               color = ifelse(pvalue < 0.05 & qvalue < 0.5, "Significant", "Non-significant"),
-               fill = contrast,
-               size = p.adjust))+
-    geom_point(shape = 21,
-               alpha = 0.5) +
-    scale_color_manual(values = c("grey", "black"))+
-    scale_size_continuous(range = c(5,2)) +
-    labs(title = "q < 0.5", color = "p < 0.05 & q < 0.5", fill = "contrast")+
-    facet_grid(ont ~., scales = "free_y", space = "free_y") +
-    # scale_color_manual(values = c("grey", "firebrick"))+
-    geom_segment(aes(xend=0, yend = Description), color = "black", size = 0.1) +
-    theme_bw()
+  # Test if faceting variables have at least one value
+  if(nrow(ora_res_df %>% filter(qvalue < 0.2)) > 0){
+    #Keep only Terms that are significant at least once
+    ora_plot <- ora_res_df %>% filter(qvalue < 0.2) %>%
+      ggplot(aes(x = FoldEnrichment, 
+                 y = reorder(Description, FoldEnrichment),
+                 color = ifelse(pvalue < 0.05 & qvalue < 0.5, "Significant", "Non-significant"),
+                 fill = contrast,
+                 size = p.adjust))+
+      geom_point(shape = 21,
+                 alpha = 0.5) +
+      scale_color_manual(values = c("grey", "black"))+
+      scale_size_continuous(range = c(5,2)) +
+      labs(title = "q < 0.5", color = "p < 0.05 & q < 0.5", fill = "contrast")+
+      facet_grid(ont ~., scales = "free_y", space = "free_y") +
+      # scale_color_manual(values = c("grey", "firebrick"))+
+      geom_segment(aes(xend=0, yend = Description), color = "black", size = 0.1) +
+      theme_bw()
+    } else{
+      ora_plot <- NULL
+      }
   
   return(list("res" = ora_res, "df" = ora_res_df, "plot" = ora_plot))
 }

@@ -1552,7 +1552,7 @@ phospho_ora <- function(se, contr = "all", OrgDb = "org.Hs.eg.db", pvalueCutoff 
       geom_segment(aes(xend=0, yend = Description), color = "black", size = 0.1) +
       theme_bw()
     } else{
-      ora_plot <- NULL
+      ora_plot <- ggplot() + theme_void()
       }
   
   return(list("res" = ora_res, "df" = ora_res_df, "plot" = ora_plot))

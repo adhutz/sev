@@ -1721,5 +1721,5 @@ prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30
   kinase_signalome_color <- kinase_all_color[colnames(ksp)]
   
   
-  return(list("kinaseSubstrateScore" = kss, "kinaseSubstratePred" = ksp, "mat" = mat, "kinase_all_color" = kinase_all_color, "kinase_signalome_color" = kinase_signalome_color",seq" = seq))
+  return(list("kinaseSubstrateScore" = kss, "kinaseSubstratePred" = ksp, "mat" = mat, "kinase_all_color" = kinase_all_color, "kinase_signalome_color" = kinase_signalome_color, "seq" = seq))
 }

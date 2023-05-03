@@ -1685,6 +1685,7 @@ center_substring <- function(input_string, n) {
 prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30){
   
   data('PhosphoSitePlus', package = "PhosR")
+  data("KinaseFamily", package = "PhosR")
   
   mat <- assay(se)
   rownames(mat) <- paste0(gsub("_", ";", rownames(mat)), ";",gsub("(.*?);.*", "\\1", rowData(se)$sequence_window))

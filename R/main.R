@@ -1677,7 +1677,8 @@ center_substring <- function(input_string, n) {
 #'         - kinaseSubstrateScore: A list of kinase substrate scores.
 #'         - kinaseSubstratePred: A matrix of kinase substrate predictions.
 #'         - mat: A matrix of collapsed phosphorylation data.
-#'         - palette: A color palette for plotting.
+#'         - kinase_all_color: A color palette for plotting.
+#'         - kinase_signalome_color" = A color palette for plotting.
 #'         - seq: A vector of sequences.
 #' @importFrom PhosR phosCollapse kinaseSubstrateScore kinaseSubstratePred
 #' @importFrom grDevices colorRampPalette
@@ -1685,7 +1686,7 @@ center_substring <- function(input_string, n) {
 prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30){
   
   data('PhosphoSitePlus', package = "PhosR")
-  KinaseFamily <- data('KinaseFamily', package = "PhosR")
+  data("KinaseFamily", package = "PhosR")
   data("KinaseMotifs", package = "PhosR")
   
   mat <- assay(se)
@@ -1720,5 +1721,5 @@ prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30
   kinase_signalome_color <- kinase_all_color[colnames(ksp)]
   
   
-  return(list("kinaseSubstrateScore" = kss, "kinaseSubstratePred" = ksp, "mat" = mat, "palette" = kinase_signalome_color, "seq" = seq))
+  return(list("kinaseSubstrateScore" = kss, "kinaseSubstratePred" = ksp, "mat" = mat, "kinase_all_color" = kinase_all_color, "kinase_signalome_color" = kinase_signalome_color",seq" = seq))
 }

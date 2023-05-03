@@ -1680,7 +1680,7 @@ center_substring <- function(input_string, n) {
 #'         - palette: A color palette for plotting.
 #'         - seq: A vector of sequences.
 #' @importFrom PhosR phosCollapse kinaseSubstrateScore kinaseSubstratePred
-#' @importFrom rDevices colorRampPalette
+#' @importFrom grDevices colorRampPalette
 #' @importFrom RColorBrewer brewer.pal
 prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30){
   

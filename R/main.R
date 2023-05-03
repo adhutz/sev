@@ -1687,7 +1687,7 @@ prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30
   data('PhosphoSitePlus', package = "PhosR")
   
   mat <- assay(se)
-  rownames(mat) <- paste0(gsub("_", ";", rownames(mat)), ";",rowData(se)$sequence_window)
+  rownames(mat) <- paste0(gsub("_", ";", rownames(mat)), ";",gsub("(.*?);.*", "\\1", rowData(se)$sequence_window))
   
   mat <- phosCollapse(assay(se), id=gsub("(.*;.*;)[1-9]*;(.*)", "\\1\\2", rownames(mat), perl = TRUE), 
                       stat=apply(abs(assay(se)), 1, max), by = "max")

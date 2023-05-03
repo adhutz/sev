@@ -1659,3 +1659,64 @@ center_substring <- function(input_string, n) {
   
   return(substr(input_string, start_pos, end_pos))
 }
+
+
+#' Prepares Phosphorylation Data for Analysis
+#'
+#' This function takes a SummarizedExperiment object and prepares the data for
+#' phosphorylation analysis using the PhosR package. It also generates a color palette
+#' for plotting.
+#'
+#' @param se A SummarizedExperiment object.
+#' @param species A character string specifying the species (default is "human").
+#'        Must be one of "human", "mouse", or "rat".
+#' @param numMotif An integer specifying the number of motifs (default is 5).
+#' @param numSub An integer specifying the number of substrates (default is 1).
+#' @param top An integer specifying the top number of substrates to select (default is 30).
+#' @return A list containing the following elements:
+#'         - kinaseSubstrateScore: A list of kinase substrate scores.
+#'         - kinaseSubstratePred: A matrix of kinase substrate predictions.
+#'         - mat: A matrix of collapsed phosphorylation data.
+#'         - palette: A color palette for plotting.
+#'         - seq: A vector of sequences.
+#' @importFrom PhosR phosCollapse kinaseSubstrateScore kinaseSubstratePred
+#' @importFrom rDevices colorRampPalette
+#' @importFrom RColorBrewer brewer.pal
+prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30){
+  
+  data('PhosphoSitePlus', package = "PhosR")
+  
+  mat <- assay(se)
+  rownames(mat) <- paste0(gsub("_", ";", rownames(mat)), ";",rowData(se)$sequence_window)
+  
+  mat <- phosCollapse(assay(se), id=gsub("(.*;.*;)[1-9]*;(.*)", "\\1\\2", rownames(mat), perl = TRUE), 
+                      stat=apply(abs(assay(se)), 1, max), by = "max")
+  
+  seq <- gsub(".*;.*;(.*)", "\\1", rownames(mat))
+  
+  rownames(mat) <- gsub("(.*;.*;).*","\\1",rownames(mat))
+  
+  if(species == "human"){
+    psite = PhosphoSite.human
+  } else if(species == "mouse"){
+    psite = PhosphoSite.mouse
+  } else if(species == "rat"){
+    psite = PhosphoSite.mouse
+  } else{
+    return("Species must be one of human, mouse or rat")
+  }
+  
+  kss <- kinaseSubstrateScore(psite, mat, seq,numMotif = numMotif, numSub = numSub, species = "human")
+  set.seed(1)
+  ksp <- kinaseSubstratePred(kss, top=top)
+  
+  
+  # Color palette
+  my_color_palette <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(8, "Accent"))
+  kinase_all_color <- my_color_palette(ncol(kss$combinedScoreMatrix))
+  names(kinase_all_color) <- colnames(kss$combinedScoreMatrix)
+  kinase_signalome_color <- kinase_all_color[colnames(ksp)]
+  
+  
+  return(list("kinaseSubstrateScore" = kss, "kinaseSubstratePred" = ksp, "mat" = mat, "palette" = kinase_signalome_color, "seq" = seq))
+}

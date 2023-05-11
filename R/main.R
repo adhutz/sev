@@ -289,8 +289,8 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
 
   #Split protein groups to single proteins, keep all
   data <- data %>%
-    mutate(orig_prot_ids = protein_ids,
-           orig_gene_names = gene_names) %>%
+    mutate(orig_prot_ids = protein_column,
+           orig_gene_names = gene_column) %>%
     split_genes(colname = gene_column, keep_all = keep_all_proteins) %>%
     split_genes(colname = protein_column, keep_all = keep_all_genes) %>%
     dplyr::rename("perseus_intensity" = "intensity")
@@ -931,7 +931,7 @@ fragpipe_read_in <- function(file, gene_column = "gene", protein_column = "prote
 }
 
 
-#' scatterPlot
+#' scatterPlot()
 #'
 #' @param df data for plotting
 #' @param col_x string column name of x-axis data 
@@ -1037,6 +1037,7 @@ scatterPlot <- function(df, col_x, col_y, col_label = "gene_names", show_labels 
 }
 
 
+#' qphos_read_in_int()
 #' Read in Phosphoproteomics Data and Perform Initial Processing
 #'
 #' This function reads in phosphoproteomics data from the "Phospho (STY)Sites.txt" MaxQuant output, processes it by splitting protein groups,
@@ -1114,6 +1115,7 @@ phos_read_in_int <- function(file, gene_column = "gene_names", protein_column = 
   return(data_se)
 }
 
+#' phos_read_in_occ()
 #' Read in phosphoproteomics occupancy data and process it
 #'
 #' This function reads in phosphoproteomics occupancy data from the "Phospho (STY)Sites.txt" MaxQuant output,
@@ -1190,6 +1192,7 @@ phos_read_in_occ <- function(file, gene_column = "gene_names", protein_column = 
   return(data_se)
 }
 
+#' gct_to_long()
 #' Convert a GCT object to a long format data frame
 #'
 #' This function takes a GCT object (or a file containing GCT data) and converts it to a long format data frame.
@@ -1234,6 +1237,7 @@ gct_to_long <- function(gct, file = ""){
 }
 
 
+#' prep_ssgsea2()
 #' Prepare Data for Single Sample Gene Set Enrichment Analysis (ssGSEA)
 #'
 #' This function prepares the data from a SummarizedExperiment object for ssGSEA analysis. It removes duplicated rows based on the rowData sequence_window, creates a GCT object, and optionally writes the GCT object to a file.
@@ -1280,6 +1284,7 @@ prep_ssgsea2 <- function(se, file = ""){
   
 }
 
+#' to_long()
 #' Convert a SummarizedExperiment object to a long format data frame
 #'
 #' This function takes a SummarizedExperiment object and converts it to a long format data frame.
@@ -1318,6 +1323,7 @@ to_long <- function(se, assays_ = c("")){
 }
 
 
+#' get_coldata()
 #' Get column data from a SummarizedExperiment object
 #'
 #' @param se A SummarizedExperiment object.
@@ -1342,6 +1348,7 @@ get_rowdata <- function(se) {
   return(as.data.frame(rowData(se)))
 }
 
+#' my_theme()
 #' Custom theme for ggplot2
 #'
 #' This function applies a custom theme to a plot by combining the DEP::theme_DEP1()
@@ -1361,6 +1368,7 @@ my_theme <- function() {
     )
 }
 
+#' add_sign()
 #' Add Significance Information to a SummarizedExperiment Object
 #'
 #' This function takes a SummarizedExperiment object, calculates significance information,
@@ -1406,6 +1414,7 @@ add_sign <- function(se, p_thr = 0.05, diff_thr = 1){
 
 }
 
+#' long_test()
 #' Long Test Function
 #'
 #' This function returns test results for an se objectin long format.
@@ -1424,15 +1433,16 @@ long_test <- function(se){
   res <- se %>% 
     get_rowdata() %>% 
     select(-significant) %>% 
-    tidyr::pivot_longer(c(ends_with("p.adj"), 
-                          ends_with("p.val"), 
+    tidyr::pivot_longer(c(ends_with("_p.adj"), 
+                          ends_with("_p.val"), 
                           ends_with("_diff"), 
                           ends_with("_significant"), 
-                          ends_with("CI.L"), 
-                          ends_with("CI.R")), 
+                          ends_with("_CI.L"), 
+                          ends_with("_CI.R")), 
                         values_to = "val", 
                         names_to = c("contrast", "pn"), 
-                        names_pattern = "(.*)_(.*)$") %>% 
+                        names_pattern = "(.*)_(.*)$") %>%
+    dplyr::select(-ends_with("p.val"), -ends_with("p.adj")) %>%
     tidyr::pivot_wider(names_from = "pn", 
                        values_from = "val") %>% 
     mutate(significant = ifelse(significant == 0, 
@@ -1441,6 +1451,7 @@ long_test <- function(se){
   return(res)
 }
 
+#' clustered_heatmap()
 #' Create a clustered heatmap from a given SummarizedExperiment object
 #'
 #' @param se A SummarizedExperiment object.
@@ -1476,6 +1487,7 @@ clustered_heatmap <- function(se, indicate = "condition", type = "centered", k =
   return(list("plot" = p_heatmap, "df" = p_heatmap_data, "clusters" = split_df))
 }
 
+#' phospho_ora()
 #' Perform Over-representation Analysis (ORA) on Phosphoproteomics Data
 #'
 #' This function takes a SummarizedExperiment object and conducts Over-representation Analysis (ORA) on proteins with at least one significant phosphosite, using the clusterProfiler package.
@@ -1558,6 +1570,7 @@ phospho_ora <- function(se, contr = "all", OrgDb = "org.Hs.eg.db", pvalueCutoff 
   return(list("res" = ora_res, "df" = ora_res_df, "plot" = ora_plot))
 }
 
+#' write_phos()
 #' Write phosphoproteomics data to a file
 #'
 #' This function takes a SummarizedExperiment object, extracts the relevant
@@ -1593,6 +1606,41 @@ write_phos <- function(se, file = ""){
   
 }
 
+#' write_prot()
+#' Write phosphoproteomics data to a file
+#'
+#' This function takes a SummarizedExperiment object, extracts the relevant
+#' data, and writes it to a file.
+#'
+#' @param se A SummarizedExperiment object containing proteomics data.
+#' @param file The filename where the resulting data should be saved (default: current directory).
+#' @return relevant data
+#' @importFrom dplyr select ends_with
+#' @importFrom DEP get_df_wide
+#' @export
+write_prot <- function(se, file = ""){
+  exp <- se %>% 
+    get_df_wide() %>%
+    select(name,
+           gene_names,
+           protein_ids,
+           protein_descriptions,
+           orig_prot_ids,
+           orig_gene_names,
+           ends_with(c("_diff","_p.val","p.adj","significant")),
+           2:(ncol(se))) 
+  
+  colnames(exp) <- gsub("_diff", "_log2FC", colnames(exp))
+  
+  if(!file == ""){
+    openxlsx::write.xlsx(exp, file = file)
+  }
+  
+  return(exp)
+  
+}
+
+#' prep_ksea()
 #' Prepare KSEA input data from SummarizedExperiment object
 #'
 #' This function processes a SummarizedExperiment object and extracts relevant information
@@ -1638,6 +1686,7 @@ prep_ksea <- function(se, contrast){
     return()
 }
 
+#' center_substring()
 #' Extract the centered substring of a given length from an input string
 #'
 #' This function extracts a substring of length `n` from the center of the input string. If `n` is greater than the length of the input string,
@@ -1661,6 +1710,7 @@ center_substring <- function(input_string, n) {
 }
 
 
+#' prep_phosR()
 #' Prepares Phosphorylation Data for Analysis
 #'
 #' This function takes a SummarizedExperiment object and prepares the data for
@@ -1683,6 +1733,7 @@ center_substring <- function(input_string, n) {
 #' @importFrom PhosR phosCollapse kinaseSubstrateScore kinaseSubstratePred
 #' @importFrom grDevices colorRampPalette
 #' @importFrom RColorBrewer brewer.pal
+#' @export
 prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30){
   
   data('PhosphoSitePlus', package = "PhosR")
@@ -1698,7 +1749,8 @@ prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30
   seq <- gsub(".*;.*;(.*)", "\\1", rownames(mat))
   
   rownames(mat) <- gsub("(.*;.*;).*","\\1",rownames(mat))
-  
+  colnames(mat) <- se$ID
+    
   if(species == "human"){
     psite = PhosphoSite.human
   } else if(species == "mouse"){
@@ -1722,4 +1774,325 @@ prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30
   
   
   return(list("kinaseSubstrateScore" = kss, "kinaseSubstratePred" = ksp, "mat" = mat, "kinase_all_color" = kinase_all_color, "kinase_signalome_color" = kinase_signalome_color, "seq" = seq))
+}
+
+
+
+#' plot_signalome_map()
+#' Plot Signalome Map
+#'
+#' This function creates a Signalome Map plot using the PhosR::plotSignalomeMap function
+#' and customizes the appearance with additional ggplot2 layers and a custom theme.
+#'
+#' @param signalome_res A data frame containing the Signalome results.
+#' @param kinase_signalome_color A vector of colors for the kinases in the Signalome Map.
+#'
+#' @return A ggplot object representing the Signalome Map plot.
+#' @import ggplot2
+#' @importFrom PhosR plotSignalomeMap
+#' 
+#' @export
+# Signalome Map
+plot_signalome_map <- function(signalome_res, kinase_signalome_color){
+  
+  p <- PhosR::plotSignalomeMap(signalome_res, kinase_signalome_color) +
+    scale_size_continuous(range = c(1,5)) + 
+    scale_y_continuous(labels = paste0("Cluster ", levels(as.factor(signalome_res$proteinModules))), breaks = 1:length(unique(signalome_res$proteinModules))) +
+    my_theme()
+  
+  return(p)
+}
+
+
+#' module_barplot()
+#' Create a bar plot with error bars for the given data
+#'
+#' This function takes a matrix and a signalome result, processes the data, and creates a bar plot with error bars.
+#' It returns a list of ggplot objects, one for each module in the signalome result.
+#'
+#' @param mat A matrix containing the data to be plotted
+#' @param signalome_res A list containing the results of the signalome analysis
+#' @return A list of ggplot objects, one for each module in the signalome result
+#' @import ggplot
+#' @importFrom dplyr mutate filter group_by summarize
+#' @importFrom tidyr pivot_longer
+#' @export
+
+module_barplot <- function(mat, signalome_res){
+  
+  
+  # Get data
+  df <- mat %>% as.data.frame() %>% mutate(gene_names = gsub("(.*);(.*);", "\\1", rownames(mat))) %>% tidyr::pivot_longer(-gene_names, names_to = "ID", values_to = "scaled_intensity") %>%
+    mutate(condition = gsub("(.*)_.*", "\\1", ID))
+  
+  mod_list <- split(names(signalome_res$proteinModules), signalome_res$proteinModules)
+  names(mod_list) <- paste0("Cluster_", names(mod_list))
+  
+  mod_list <- lapply(mod_list, function(x) filter(df, gene_names %in% x))
+  
+  l <- do.call(cbind, lapply(mod_list, function(x) group_by(x, condition) %>% summarize(m = mean(scaled_intensity))))
+  
+  # Function to calculate mean and standard deviation
+  mean_sd <- function(x) {
+    y = mean(x, na.rm = TRUE)
+    return(c(y = y,
+             ymin = y - sd(x, na.rm = TRUE),
+             ymax = y + sd(x, na.rm = TRUE)))
+  }
+  
+  # Create the bar plot with error bars
+  res <- lapply(seq_along(mod_list), function(z) ggplot(mod_list[[z]], aes(x = factor(condition), y = scaled_intensity, fill = factor(condition))) +
+                  geom_boxplot()+
+                  xlab("Condition") +
+                  ylab("Scaled intensity") +
+                  labs(title = names(mod_list)[[z]]) +
+                  my_theme())
+  
+  return(res)
+}
+
+
+#' prep_phosR_from_ppe()
+#' Prepares phosphoproteomics data for PhosR analysis
+#'
+#' This function processes phosphoproteomics data, calculates kinase-substrate scores, and generates predictions for the given data.
+#' It also generates color palettes for visualization.
+#'
+#' @param ppe Phosphoproteomics data object
+#' @param species Species of the data, one of "human", "mouse", or "rat" (default: "human")
+#' @param numMotif Number of motifs to use (default: 5)
+#' @param numSub Number of substrates to use (default: 1)
+#' @param top Number of top kinases to consider (default: 30)
+#' @param assay Type of assay data to use (default: "z_scored")
+#'
+#' @return A list containing kinaseSubstrateScore, kinaseSubstratePred, mat, kinase_all_color, kinase_signalome_color, and seq
+#' @importFrom PhosR PhosphoExperiment kinaseSubstrateScore kinaseSubstratePred
+#' @importFrom grDevices colorRampPalette
+#' @importFrom RColorBrewer brewer.pal
+#' @export
+prep_phosR_from_ppe <- function(ppe, species = "human", numMotif = 5, numSub = 1, top = 30, assay = "z_scored"){
+  
+  # Load datasets from PhosR
+  data('PhosphoSitePlus', package = "PhosR")
+  data("KinaseFamily", package = "PhosR")
+  data("KinaseMotifs", package = "PhosR")
+  
+  # Get data from provided object
+  mat <- ppe@assays@data[[assay]]
+  
+  seq <- gsub(".*;.*;(.*)", "\\1", rownames(mat))
+  
+  rownames(mat) <- gsub(".*;(.*;.*;).*","\\1",rownames(mat))
+  colnames(mat) <- ppe$ID
+  
+  if(species == "human"){
+    psite = PhosphoSite.human
+  } else if(species == "mouse"){
+    psite = PhosphoSite.mouse
+  } else if(species == "rat"){
+    psite = PhosphoSite.rat
+  } else{
+    return("Species must be one of human, mouse or rat")
+  }
+  
+  kss <- kinaseSubstrateScore(psite, mat, seq, numMotif = numMotif, numSub = numSub, species = "human")
+  set.seed(1)
+  ksp <- kinaseSubstratePred(kss, top=top)
+  
+  
+  # Color palette
+  my_color_palette <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(8, "Accent"))
+  kinase_all_color <- my_color_palette(ncol(kss$combinedScoreMatrix))
+  names(kinase_all_color) <- colnames(kss$combinedScoreMatrix)
+  kinase_signalome_color <- kinase_all_color[colnames(ksp)]
+  
+  
+  return(list("kinaseSubstrateScore" = kss, "kinaseSubstratePred" = ksp, "mat" = mat, "kinase_all_color" = kinase_all_color, "kinase_signalome_color" = kinase_signalome_color, "seq" = seq))
+}
+
+#' aov_scale_phosR()
+#' AOV Scale PhosR Function
+#'
+#' This function takes a ppe object and applies a series of transformations,
+#' including mean abundance calculation, ANOVA filtering, subsetting, standardization,
+#' and z-scoring. The transformed data is then added as a new assay to the ppe object.
+#'
+#' @param ppe A ppe object.
+#' @param p_cut A numeric threshold for selecting rows based on ANOVA p-value (default: 0.05).
+#' @param fc_cut A numeric threshold for selecting rows based on fold change (default: 0.5).
+#' @param assay A character specifying the assay to use from ppe (default: "normalised").
+#' @return A ppe object with the transformed data added as a new assay named "z_scored".
+#' @importFrom PhosR PhosphoExperiment meanAbundance matANOVA
+#' @export
+aov_scale_phosR <- function(ppe, p_cut = 0.05, fc_cut = 0.5, assay = "normalised"){
+  mat <- ppe@assays@data[[assay]]
+  mat.mean <- meanAbundance(mat, grps = colData(ppe)$condition)
+  
+  aov <- matANOVA(mat=mat, grps = colData(ppe)$condition)
+  idx <- (aov < p_cut) & (rowSums(mat.mean > fc_cut) > 0)
+  
+  mat.reg <- mat[idx, ,drop = FALSE]
+  
+  mat.std <- standardise(mat.reg)
+  colnames(mat.std) <- ppe$ID
+  
+  ppe <- ppe[idx,]
+  ppe <- sev::add_assay(ppe, mat.std, "z_scored")
+  
+  return(ppe)
+}
+
+#' test_diff_phosR()
+#' Test Differential Phosphorylation
+#'
+#' This function tests differential phosphorylation using a linear model fit and an empirical Bayes approach.
+#'
+#' @param ppe A PhosR object containing the phosphorylation data.
+#' @param contrast A character vector specifying the contrasts to be tested. Default is "treatment_vs_control".
+#' @param test_all A logical value indicating whether to test all possible contrasts or just the specified ones. Default is FALSE.
+#' @param assay A character string specifying the assay to use for the analysis. Default is "scaled".
+#'
+#' @return A modified PhosR object with the differential phosphorylation test results added to the rowData.
+#' @importFrom limma lmFit makeContrasts contrasts.fit eBayes topTable
+#' @importFrom S4Vectors expand.grid
+#' @importFrom dplyr rename_with mutate select filter
+#' @importFrom BiocGenerics cbind
+#' @export
+test_diff_phosR <- function(ppe, contrast = c("treatment_vs_control"), test_all = FALSE, assay = "scaled"){
+  
+  # Create design matrix
+  design <- model.matrix(~ ppe$condition - 1)
+  colnames(design) <- gsub("ppe\\$condition", "", colnames(design))
+  
+  fit <- lmFit(ppe@assays@data[[assay]], design)
+  
+  # Create contrasts
+  if(test_all == FALSE){
+    contrast_ <- gsub("_vs_", "-", contrast)
+  } else{
+    contrast_ <- expand.grid(colnames(design), colnames(design)) %>% 
+      filter(!Var1 == Var2) %>% mutate(contrast_ = paste0(Var1, "-", Var2)) %>%
+      select(contrast_) %>%
+      unlist()
+  }
+  
+  # Create contrast matrix
+  contrast.matrix <- makeContrasts(contrasts = contrast_, levels=design)
+  
+  # fit model
+  fit2 <- contrasts.fit(fit, contrast.matrix)
+  
+  fit2 <- eBayes(fit2)
+  
+  # Create a named list of contrasts
+  names(contrast_) <- contrast_
+  
+  # Get a list of all tested contrasts and rename the columns accordingly
+  l <- lapply(contrast_, function(x) topTable(fit2, coef = x, number = Inf, sort.by = "none", confint = TRUE))
+  l <- lapply(seq_along(l), function(i) dplyr::rename_with(l[[i]], ~ paste0(names(l)[i], "_", .x)))
+  
+  # Merge the results and add the F statistic 
+  l_com <- cbind(do.call(cbind, l), topTable(fit2, number = Inf, sort.by = "none", confint = TRUE))
+  colnames(l_com) <- gsub("-", "_vs_", 
+                          gsub("logFC", "diff", 
+                               gsub("adj.P.Val", "p.adj", 
+                                    gsub("P.Value", "p.val", colnames(l_com)))))
+  
+  
+  rowData(ppe) <- rowData(ppe)[, !colnames(rowData(ppe)) %in% c(colnames(l_com), paste0(contrast, "_significant"), "significant")]
+  rowData(ppe) <- cbind(rowData(ppe), l_com)
+  
+  return(ppe)
+}
+
+
+#' maxq_to_ppe()
+#' Convert MaxQuant output to PhosphoExperiment object
+#'
+#' This function reads a MaxQuant output file, filters the data, and converts it into a PhosphoExperiment object.
+#'
+#' @param file The input file in tab-delimited format.
+#' @param sep The separator used in column names for replicates (default: "_rep_").
+#' @param filt A vector of filters to remove unwanted rows (default: c("reverse", "potential_contaminant")).
+#' @param experimental_design An optional data frame to provide custom experimental design information.
+#' @return A PhosphoExperiment object containing the processed data.
+#' @importFrom janitor make_clean_names
+#' @importFrom dplyr mutate filter starts_with contains select 
+#' @importFrom DEP make_unique
+#' @importFrom BiocGenerics colnames rownames
+#' @importFrom PhosR PhosphoExperiment
+#' @export
+maxq_to_ppe <- function(file, sep="_rep_",
+                        filt = c("reverse", "potential_contaminant"), experimental_design = NA){
+  
+  data <- read.delim(file, sep="\t")
+  
+  colnames(data) <- colnames(data) %>%
+    tolower() %>%
+    janitor::make_clean_names()
+  
+  #Split protein groups to single proteins, keep all
+  data <- data %>%
+    mutate(orig_prot_ids = proteins,
+           orig_gene_names = gene_names, 
+           orig_positions_within_proteins = positions_within_proteins,
+           orig_sequence_window = sequence_window,
+           protein_ids = gsub("(.*?);.*", "\\1", proteins),
+           gene_names = gsub("(.*?);.*", "\\1", gene_names),
+           positions_within_proteins = gsub("(.*?);.*", "\\1", positions_within_proteins),
+           sequence_window = gsub("(.*?);.*", "\\1", sequence_window))
+  
+  
+  #Filter false and low quality hits
+  data <- data %>% filter(if_all(filt, ~ .x == ""))
+  
+  # Create assays for ppe
+  int <- as.matrix(data[grep(paste0("intensity_.*", sep, "[1-9]*$"), colnames(data))]) %>% log2() 
+  mult_1 <- as.matrix(data[grep("intensity_.*_1", colnames(data))]) %>% log2()
+  mult_2 <- as.matrix(data[grep("intensity_.*_2", colnames(data))]) %>% log2()
+  mult_3 <- as.matrix(data[grep("intensity_.*_3", colnames(data))]) %>% log2()
+  
+  # replace missing values with NA
+  int[is.infinite(int)] <- NA 
+  mult_1[is.infinite(mult_1)] <- NA
+  mult_2[is.infinite(mult_2)] <- NA
+  mult_3[is.infinite(mult_3)] <- NA
+  
+  # Change colnames
+  label<- colnames(int)
+  
+  ID <- gsub(paste0("intensity_(.*)", sep, "(.*)"), "\\1_\\2", label)
+  colnames(int) <- ID
+  colnames(mult_1) <- ID
+  colnames(mult_2) <- ID
+  colnames(mult_3) <- ID
+  
+  # Create colData if not provided
+  if(!all(c("label", "sample", "condition", "replicate") %in% colnames(experimental_design))){
+    experimental_design<-data.frame(label=label,
+                                    sample=gsub("intensity_", "", label),
+                                    ID = ID,
+                                    condition=gsub(paste0("intensity_|",sep, "[0-9].*"), "", label),
+                                    replicate=gsub(paste0("^.*",sep,"(?=[0-9])"), "", label, perl = TRUE))
+  }
+  
+  #Create rowData
+  rowdata <- data %>% select(-grep("intensity", colnames(data)), -starts_with("score"), -contains("_diff")) %>% mutate(gene_names = ifelse(gene_names == "", "NA", gene_names)) %>% mutate(psite = paste0(gene_names, ";", amino_acid, ";", positions_within_proteins)) %>% make_unique(names = "psite", ids = "psite", delim = "/")
+  
+  # Create PPE
+  ppe <- PhosphoExperiment(assays = list(Quantification = int, 
+                                         multiplicity_1 = mult_1,
+                                         multiplicity_2 = mult_2,
+                                         multiplicity_3 = mult_3),
+                           rowData = rowdata,
+                           colData = experimental_design,
+                           Site = as.numeric(data$positions_within_proteins), 
+                           GeneSymbol = data$gene_names, 
+                           Residue = data$amino_acid, 
+                           Sequence = data$sequence_window, 
+                           UniprotID = data$protein_ids,
+                           Localisation = as.numeric(data$localization_prob))
+  
+  rownames(ppe) <- paste(rowdata$protein_ids, rowdata$gene_names, paste0(rowdata$amino_acid, rowdata$positions_within_proteins), rowdata$sequence_window, sep = ";")
+  return(ppe)
 }

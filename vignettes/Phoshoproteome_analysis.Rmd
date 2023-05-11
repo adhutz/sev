@@ -1,0 +1,420 @@
+---
+title: "Phosphoproteome_analysis"
+author: "Arvid Hutzfeldt"
+date: "`r format(Sys.time(), '%d %m %Y')`"
+output: 
+  rmarkdown::html_vignette:
+vignette: >
+  %\VignetteIndexEntry{Phosphoproteome_analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{css, echo=FALSE}
+.rmd-figure {
+  width: 100%;
+}
+
+```
+
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+attr.source='style="max-height: 200px;"', collapse=TRUE,fig.width = 6,fig.height = 5
+)
+```
+
+
+# Phospho-Intensity analysis
+
+In this project, we measured the proteome and phosphoproteome of HEK293 cells that conditionally express variants of APOL1. From this, we used MaxQuant to calculate intensities and occupancies for the different phosphosites. Intensities refer to the level of phosphorylation at a specific site, while occupancy refers to the proportion of proteins that are phosphorylated at that site.
+
+At first, intensities were used instead of occupancies because they provide a more accurate representation of the biological activity at a specific site. 
+
+
+# Load data
+
+Intensities of phosphosites are loaded as an assay of the summarized experiment. Each row contains one specific combination of phosphosite and multiplicity. 
+
+Phosphosite multiplicity refers to the number of phosphates attached to a single amino acid residue in a protein. When a phosphoproteomic experiment identifies multiple phosphosites on the same residue, they are separated and reported as distinct entities. This is important because each phosphorylation event can have different functional consequences for the protein, and may be regulated independently.
+
+```{r}
+library(dplyr)
+library(sev)
+
+se <- sev::phos_read_in_int(file = "../inst/extdata/example_2_Phospho (STY)Sites.txt", sep = "_r")
+
+```
+
+# Describe samples
+
+```{r}
+
+tab <- se %>% colData() %>% gridExtra::tableGrob()
+
+se %>% colData() %>% as.data.frame() %>% kableExtra::kable()  %>% kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+# Pre-processing
+## Filtering localization-prob
+We filter phosphosites with low localization probability to increase the confidence in the identification of the phosphorylation site. The localization probability indicates the likelihood that the phosphorylation event occurs at a specific amino acid residue within the protein sequence, as opposed to other potential sites. Low localization probabilities indicate a higher likelihood of ambiguity in the identification of the phosphosite, which could lead to false-positive results. 
+```{r}
+
+se <- se[rowData(se)$localization_prob > 0.75]
+
+rd <- se %>% 
+  to_long("intensity_raw") 
+
+p_prob <- rd %>% ggplot(aes(x = 1:nrow(.), y = sort(localization_prob)))+
+  geom_line() +
+  labs(y = "localization probability", x = "rank") +
+  my_theme()
+
+p_prob
+
+p_mult <- rd %>% ggplot(aes(x = multiplicity, y = value, color = sample))+
+  geom_boxplot() +
+  labs(y = "log(Intensity)")+
+  my_theme()
+
+p_mult
+
+p_n <- rd %>% filter(!is.na(value)) %>% ggplot(aes(x = condition, color = replicate, group = sample))+
+  geom_point(stat = "count", position = "dodge")+
+  labs(title = "Multiplicity")+
+  facet_wrap(.~multiplicity, nrow = 1, scales = "free_y")+
+  my_theme()
+
+p_n
+
+```
+
+## Filtering missing values
+In proteomics, missing values should be handled by retaining entries with only a few missing values to avoid significant data loss and preserve statistical power. These entries can still provide valuable information for analysis. The remaining missing values can be addressed using appropriate statistical techniques, such as imputation, to estimate the missing values based on observed data patterns, ensuring a comprehensive and reliable analysis of the proteomic dataset.
+
+```{r}
+se_filt <- DEP::filter_missval(se, 2)
+
+# Percentage of missing values
+p_miss <- data.frame("x" = colnames(assay(se)), "y" = 100 * colSums(is.na(assay(se)))/(colSums(is.na(assay(se))) + colSums(!is.na(assay(se))))) %>% ggplot(aes(x = x, y = y)) +
+  geom_bar(stat = "identity") +
+  labs(y = "Missing values [%]", title = "Prior filtering missing values")+
+  my_theme()
+
+p_miss
+
+# Percentage of missing values
+p_miss2 <- data.frame("x" = colnames(assay(se_filt)), "y" = 100 * colSums(is.na(assay(se_filt)))/(colSums(is.na(assay(se_filt))) + colSums(!is.na(assay(se_filt))))) %>% ggplot(aes(x = x, y = y)) +
+  geom_bar(stat = "identity") +
+  labs(y = "Missing values [%]",  title = "After filtering missing values")+
+  my_theme()
+
+p_miss2
+```
+
+## normalization
+Variance normalization and median centering are two common preprocessing steps in data normalization for proteomic experiments.
+
+Variance normalization aims to equalize the variability across different proteins or peptides in a dataset. It scales the data by dividing each value by the standard deviation or variance of the corresponding feature. This adjustment helps to account for differences in abundance or intensity levels between proteins and ensures that no single feature dominates the analysis.
+
+On the other hand, median centering involves subtracting the median value of each feature (protein or peptide) from its respective data points. This step helps to remove systematic biases and shifts in the data. Median centering makes the data symmetric around zero, allowing for better comparison and interpretation of relative differences between samples.
+```{r}
+# Variance normalization
+se_norm_var <- se_filt %>% DEP::normalize_vsn()
+
+# Median normalization
+se_norm <- se_norm_var
+assay(se_norm) <- scale(assay(se_norm), center = TRUE)
+
+p_norm <- DEP::plot_normalization(se_filt, se_norm_var, se_norm) 
+
+p_norm
+```
+
+## Imputation
+By estimating missing values based on observed data patterns, imputation takes into account the relationships and dependencies within the dataset, providing a more realistic and informative view of the proteomic landscape.
+
+In the context of imputing missing values in proteomics, drawing from a left-shifted Gaussian distribution is a common approach because it reflects the underlying assumption that missing values are likely to be lower than the observed values. 
+```{r}
+# Impute with "perseus" method
+se_imp_perseus <- se_norm %>% sev::impute_DEP(fun = "man")
+
+p_imp <- DEP::plot_imputation(se_norm, se_imp_perseus)
+
+p_imp
+
+```
+
+## Testing
+
+```{r}
+
+# Delete score column as it would lead to errors later
+cols <- !grepl("score", colnames(rowData(se_imp_perseus)))
+
+rowData(se_imp_perseus) <- rowData(se_imp_perseus)[, cols]
+
+# Statistical testing via DEP package
+se_diff <- DEP::test_diff(se_imp_perseus, 
+                          type = "manual", 
+                          test = c("gfp_vs_g0", "g2_vs_g0")) %>% 
+  add_sign()
+
+# Get test results in long format
+se_diff_test <- long_test(se_diff)
+
+
+# Bar plot, n(significant) vs. multiplicity
+p_multiplicity <- se_diff_test %>% filter(significant == TRUE) %>% ggplot(aes(x = multiplicity, fill = contrast))+
+  geom_bar(stat = "count", position = "dodge")+
+  my_theme()
+
+p_multiplicity
+
+# Bar plot, n(significant) vs. aa
+p_aa <- se_diff_test %>% filter(significant == TRUE) %>% ggplot(aes(x = amino_acid, fill = contrast))+
+  geom_bar(stat = "count", position = "dodge")+
+  my_theme()
+
+p_aa
+
+# Beeswarm, 
+
+cols_occupancy <- colnames(se_diff_test)[grepl("occupancy_", colnames(se_diff_test)) & 
+  !grepl("(occupancy_ratio)|(occupancy_error_scale)", colnames(se_diff_test))]
+
+
+p_occ <- se_diff_test %>% filter(significant == TRUE) %>% tidyr::pivot_longer(cols_occupancy, names_to = "set", values_to  ="occupancy") %>% ggplot(aes(x = set, y = occupancy, color = gsub("occupancy_(.*)_r[0-9]*", "\\1", set)))+
+  labs(color = "Condition") +
+  ggbeeswarm::geom_beeswarm() +
+  my_theme()
+
+p_occ
+
+
+# volcanos with labels
+v1 <- sev:::se_volcano(se_diff, contrast = "gfp_vs_g0", id_col = "name")
+v2 <- sev:::se_volcano(se_diff, contrast = "g2_vs_g0", id_col = "name")
+
+v1
+v2
+
+
+
+# volcanos without labels
+volcanos <- se_diff_test %>% ggplot(aes(x = diff, y = -log2(p.val), color = significant)) +
+  geom_point() +
+  facet_wrap(.~contrast) +
+  my_theme()
+
+volcanos
+
+# PCA of significant sites (change n accordingly)
+p_pca <- se_diff[rowData(se_diff)$significant == TRUE,] %>% DEP::plot_pca(n = 7)
+p_pca
+
+# Heatmap
+p_heatmap <- clustered_heatmap(se_diff, k = 3)
+
+```
+
+## Upset plot of significant proteins
+```{r}
+# Upset plot, significant proteins
+sign <- se_diff_test %>% filter(significant == TRUE) %>% group_by(contrast) %>% summarize(ids = list(site_id_mult))
+
+overlap_list <- as.list(sign$ids)
+names(overlap_list) <- sign$contrast
+
+UpSetR::upset(UpSetR::fromList(overlap_list))
+```
+
+```{r, eval = FALSE}
+# Save Upset Plot as pdf
+pdf(file = paste0(dir, "/", gsub(":","-",format(Sys.time(), "%Y%m%d_")), "phosphosite_significance_overlap.pdf"), onefile = FALSE, h = 5, w = 6)
+UpSetR::upset(UpSetR::fromList(overlap_list))
+dev.off()
+
+```
+
+## Look up specific protein
+
+```{r}
+
+apol1 <- rownames(assay(se_filt)) %>% grep("APOL1", ., value = TRUE)
+
+p_apol1 <- lapply(apol1, plot_single, dep = se_diff, type = "centered")
+
+p_apol1
+
+```
+
+# GO-term overrepresentation analysis
+GO-terms are linked to proteins and not phosphosites. Here, we identified GO-terms that were overrepresented across proteins with at least one significant phosphosite. 
+
+```{r}
+
+res <- phospho_ora(se_diff)
+
+res$plot
+
+```
+
+# Save results
+Use this function to extract a minimized dataframe and write it to a file (if file is specified)
+```{r}
+
+res <- write_phos(se_diff, file = "")
+
+```
+
+
+# Kinase enrichment
+Kinase enrichment analysis is a computational method used to identify and assess the overrepresentation or enrichment of specific kinases in a set of proteins or genes of interest. It involves analyzing the frequency of kinases within the input dataset and comparing it to a background distribution, such as the entire proteome or a reference dataset. By identifying kinases that are significantly enriched in the dataset, kinase enrichment analysis helps to gain insights into the signaling pathways and regulatory mechanisms involved in the biological processes represented by the input proteins or genes.
+
+## ssGSEA2
+SSGSEA2 (Single Sample Gene Set Enrichment Analysis 2) is an updated version of the SSGSEA algorithm. It calculates an enrichment score for each gene set based on the relative rank of genes within a sample's gene expression profile. SSGSEA2 is suitable for analyzing individual samples and allows for the assessment of gene set enrichment in a single-sample context.
+
+This package is used differently, as it is necessary to write result files and read them back in later. Also, one needs to have the appropriate [ptm.sig.db](https://github.com/broadinstitute/ssGSEA2.0) file.
+
+Here, we use the ptm.sig.db.all.flanking.human.v2.0.0.gmt version, as we get the necessary information directly from MaxQuant as "sequence_window". 
+
+### significant sites
+One can restrict the analysis to significantly altered phosphosites
+```{r, eval = FALSE}
+library(ssGSEA2)
+
+# Create gct file from se and save it to the specified path. 
+data <- se_diff[rowData(se_diff)$significant == TRUE,]
+gct_int_sign <- prep_ssgsea2(data, ".")
+
+# Run ssGSEA2 
+res_sign = ssGSEA2::run_ssGSEA2(gct_int_sign$path,
+                  output.prefix = "/20230403_sign_intensity",
+                  gene.set.databases = "../data/ptmsigdb_v2.0.0/ptm.sig.db.all.flanking.human.v2.0.0.gmt",
+                  output.directory = dir,
+                  sample.norm.type = "none", 
+                  weight = 0, 
+                  correl.type = "rank", 
+                  statistic = "area.under.RES",
+                  output.score.type = "NES", 
+                  nperm = 1000, 
+                  min.overlap = 5, 
+                  extended.output = TRUE, 
+                  global.fdr = FALSE,
+                  log.file = "../run.log")
+
+# Read results
+res_sign_long <- gct_to_long(file = paste0(dir, "/20230421_sign_intensity-combined.gct"))
+
+# Plot results
+res_sign_long %>% filter(fdr.pvalue < 0.1) %>% ggplot(aes(x = id.y, y = id.x, size = value, color = fdr.pvalue))+
+  geom_point() +
+  scale_color_gradient2(low = "blue", high = "firebrick", mid = "white") +
+  my_theme()
+
+```
+
+
+### All sites
+Alternatively, one can use all phosphosites. This takes a massive amount of time so better let it run over night! 
+```{r, eval = FALSE}
+gct_int <- prep_ssgsea2(se_diff, ".")
+
+res = ssGSEA2::run_ssGSEA2(gct_int$path,
+                  output.prefix = "20230403_intensity",
+                  gene.set.databases = "../data/ptmsigdb_v2.0.0/ptm.sig.db.all.flanking.human.v2.0.0.gmt",
+                  output.directory = dir,
+                  sample.norm.type = "none", 
+                  weight = 0, 
+                  correl.type = "rank", 
+                  statistic = "area.under.RES",
+                  output.score.type = "NES", 
+                  nperm = 1000, 
+                  min.overlap = 5, 
+                  extended.output = TRUE, 
+                  global.fdr = FALSE,
+                  log.file = "../run.log")
+
+res_long <- gct_to_long(file = paste0(dir, "/20230421_intensity-combined.gct"))
+
+res_long %>% filter(fdr.pvalue < 0.05) %>% ggplot(aes(x = id.y, y = id.x, size = value, color = fdr.pvalue))+
+  geom_point() +
+  scale_color_gradient2(low = "blue", high = "firebrick", mid = "white") +
+  my_theme()
+
+```
+
+## KSEA-app
+KSAapp (Kinase-Substrate Activity Application) is a specialized tool focused on kinase-substrate activity prediction and analysis. It integrates multiple data sources, such as phosphorylation sites and kinase-substrate interactions, to predict the activity levels of kinases and their downstream substrates. KSAapp provides insights into the potential regulatory activity of kinases and their effects on signaling networks.
+
+### Create input datasets
+```{r}
+
+ksea_input_gfp_vs_g0 <- prep_ksea(se = se_diff, contrast = "gfp_vs_g0")
+
+
+ksea_input_g2_vs_g0 <- prep_ksea(se = se_diff, contrast = "g2_vs_g0")
+
+```
+
+### Get KS_table
+```{r}
+library(KSEAapp)
+KSData.dataset_gfp <- KSEA.KS_table(KSData,  ksea_input_gfp_vs_g0, NetworKIN=TRUE, NetworKIN.cutoff=5)
+KSData.dataset_g2 <- KSEA.KS_table(KSData,  ksea_input_g2_vs_g0, NetworKIN=TRUE, NetworKIN.cutoff=5)
+```
+
+### Get scores
+```{r}
+Scores_gfp <- KSEA.Scores(KSData, ksea_input_gfp_vs_g0, NetworKIN=TRUE, NetworKIN.cutoff=5)
+Scores_g2 <- KSEA.Scores(KSData, ksea_input_g2_vs_g0, NetworKIN=TRUE, NetworKIN.cutoff=5)
+```
+
+### Barplot
+The Barplot is saved as a tiff in your working directory. To make things easier you can copy the file via the "file.copy" function.
+```{r}
+KSEA.Barplot(KSData, ksea_input_gfp_vs_g0, NetworKIN=TRUE, NetworKIN.cutoff=5, m.cutoff=5, p.cutoff=0.01, export = FALSE)
+
+KSEA.Barplot(KSData, ksea_input_g2_vs_g0, NetworKIN=TRUE, NetworKIN.cutoff=5, m.cutoff=5, p.cutoff=0.01, export=FALSE)
+
+
+```
+
+### Heatmap
+The Heatmap is saved as a file in your working directory. To make things easier you can copy the file via the "file.copy" function.
+```{r, eval=FALSE}
+
+KSEA.Heatmap(score.list=list(Scores_gfp, Scores_g2), 
+             sample.labels=c("g0", "g2"), 
+             stats="p.value", m.cutoff=3, p.cutoff=0.05, sample.cluster=TRUE)
+
+file.copy("KSEA.Merged.Heatmap.png", paste0(dir, "/ksea_heatmap.png"), overwrite = TRUE)
+```
+
+```{r}
+knitr::include_graphics("../inst/extdata/KSEA.Merged.Heatmap.png")
+```
+
+# Plot Sequence Logos
+Sequence logos can be plotted via the *ggseqlogo* package. The input is a named list of the sequences as strings. All strings need to have the same length, so one needs to apply the center_substring first.
+
+To plot logos for all significant sites:
+```{r}
+df <- se_diff_test %>% 
+  filter(significant) %>% 
+  mutate(sequence_window = center_substring(sequence_window, 14)) %>%
+  group_by(contrast) %>%
+  summarize(seqs = list(sequence_window))
+
+names(df$seqs) = df$contrast
+
+result = df$seqs
+
+library(ggseqlogo)
+ggseqlogo(result, seq_type='aa', method = "bit") 
+
+```
+
+

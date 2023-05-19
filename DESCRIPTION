@@ -38,5 +38,4 @@ Remotes:
     bioc::HybridMTest,
     bioc::PhosR,
     bioc::cmapR,
-    bioc::rbioapi,
     bioc::MSnbase

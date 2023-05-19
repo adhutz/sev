@@ -7,7 +7,7 @@ Description: Adds on the iSEE and DEP package
 License: `use_mit_license()`
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.0
+RoxygenNote: 7.2.3
 Depends: 
     iSEE,
     iSEEu,
@@ -17,20 +17,17 @@ Depends:
     dplyr,
     MSnbase
 Imports: 
-    BiocGenerics,
     clusterProfiler,
-    ggrepel,
     HybridMTest,
     janitor,
-    SingleCellExperiment,
     splitstackshape,
-    stats,
-    tidyr,
-    magrittr,
     ggraph,
     cowplot,
     igraph,
-    rbioapi
+    rbioapi,
+    PhosR,
+    gdata,
+    cmapR
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 Remotes: 
@@ -39,4 +36,7 @@ Remotes:
     bioc::DEP,
     bioc::clusterProfiler,
     bioc::HybridMTest,
-    bioc::SingleCellExperiment
+    bioc::PhosR,
+    bioc::cmapR,
+    bioc::rbioapi,
+    bioc::MSnbase

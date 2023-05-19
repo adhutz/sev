@@ -4,12 +4,14 @@
 \alias{se_volcano}
 \title{se_volcano()}
 \usage{
-se_volcano(se, contrast_)
+se_volcano(se, contrast_, id_col = "gene_names")
 }
 \arguments{
 \item{se}{summarized experiment}
 
 \item{contrast_}{contrast}
+
+\item{id_col}{id column}
 }
 \value{
 volcano plot

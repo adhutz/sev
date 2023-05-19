@@ -947,7 +947,6 @@ fragpipe_read_in <- function(file, gene_column = "gene", protein_column = "prote
 #' @importFrom ggrepel geom_text_repel
 #' @importFrom DescTools Closest
 #' @importFrom stringr str_wrap
-#' @examples
 #' @export
 
 scatterPlot <- function(df, col_x, col_y, col_label = "gene_names", show_labels = TRUE, title = "", standard_dev=2, window=1) {
@@ -1250,7 +1249,7 @@ gct_to_long <- function(gct, file = ""){
 #'   \item{"path"}{A character string indicating the path of the saved GCT file, if applicable.}
 #'   \item{"duplicated"}{A SummarizedExperiment object containing the duplicated rows removed from the input object.}
 #' }
-#' @importFrom cmap write_gct
+#' @importFrom cmapR write_gct
 #' @examples
 #' # Create a SummarizedExperiment object (se) here
 #' # ...
@@ -1421,9 +1420,9 @@ add_sign <- function(se, p_thr = 0.05, diff_thr = 1){
 #'
 #' @param se An se object.
 #' @return A data frame.
-#' @importFrom dplyr get_rowdata select mutate
+#' @importFrom dplyr select mutate
 #' @importFrom tidyr pivot_longer pivot_wider
-#' @importFrom stringr ends_with
+#' @importFrom tidyselect ends_with
 #' @examples
 #' # Example usage:
 #' # result <- long_test(se)
@@ -1813,7 +1812,7 @@ plot_signalome_map <- function(signalome_res, kinase_signalome_color){
 #' @param mat A matrix containing the data to be plotted
 #' @param signalome_res A list containing the results of the signalome analysis
 #' @return A list of ggplot objects, one for each module in the signalome result
-#' @import ggplot
+#' @import ggplot2
 #' @importFrom dplyr mutate filter group_by summarize
 #' @importFrom tidyr pivot_longer
 #' @export

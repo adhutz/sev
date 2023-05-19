@@ -4,9 +4,9 @@ got<-GOTable(PanelWidth=8L)
 rst <- RowDataTable(PanelWidth = 12L)
 
 
-#' isee_mini()
-#' 
-#' Explores your own summarized experiment
+#' Create iSEE app with all custom panels
+#'
+#' Includes GeneAnnoTable, GOTable and RowDataTable. 
 #'
 #' @param se summarized experiment object
 #'
@@ -18,7 +18,7 @@ isee_mini <- function(se) {
 }
 
 
-#' Make_mini()
+#' Minimize results
 #' 
 #' Reduces the columns of rowData to the minimum. Names and IDs of genes and
 #' proteins are retained together with t-test results including fold change,
@@ -41,7 +41,7 @@ make_mini <- function(se) {
   return(se)
 }
 
-#' filter_perseus()
+#' Filter on occurence 
 #' 
 #' Filters proteins with too many missing values. Parameters mimic the options
 #' given by Perseus.
@@ -108,7 +108,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 }
 
 
-#'Impute_perseus()
+#'Impute as with perseus
 #'
 #'Imputes missing values in a summarized experiment similar to Perseus. Missing values are
 #'replaced by drawing from a left shifted gaussian distribution that is calculated based on either
@@ -191,7 +191,7 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 
 ###################################
 
-#' se_volcano()
+#' Colored volcano plot
 #' 
 #' Create a volcano plot for a summarized experiment and the selected contrast.
 #'
@@ -232,7 +232,7 @@ se_volcano<-function(se, contrast_, id_col = "gene_names"){
   
 }
 
-#' Split_genes()
+#' Handling of columns with multiple entries
 #'
 #' Split columns with multiple entries (need to be separated by a semicolon) into multiple rows with one entry each.
 #' @param table dataframe
@@ -252,7 +252,7 @@ split_genes <- function(table, colname="gene_names", keep_all=FALSE){
   }
 }
 
-#' se_read_in()
+#' Create se from MaxQuant
 #' 
 #' Reads in MaxQuant or other output and creates a summarized experiment.
 #'
@@ -320,10 +320,10 @@ se_read_in <- function(file, gene_column = "gene_names", protein_column = "prote
 }
 
 
-#' add_randna()
+#' Explore type of missingness
 #' 
 #' Add column to rowData that specifies for each row if values are missing at random or
-#' not. The method is very rudimentary:
+#' not (MAR vs MNAR). The method is very rudimentary:
 #' 1. Missing values are replaced by zeros, measured values by 1.
 #' 2. ANOVA between conditions is performed to determine significant differences
 #' of the mean.
@@ -350,7 +350,7 @@ add_randna <- function(se){
 }
 
 
-#' se_GOE()
+#' GO term enrichment
 #' 
 #' Performs GO-term enrichment via clusterprofiler for all contrasts of a summarized experiment.
 #' Results are added to the metadata.
@@ -426,7 +426,7 @@ se_GOE <- function(se, col_names =c(), simplify = TRUE, ont="all", keyType = "SY
 }
 
 
-#' se_to_isee()
+#' Make se compatible to iSEE 
 #' 
 #' Transform summarized experiment. The result is a summarized experiment
 #' of the type "SingleCellExperiment" to allow dimensional reduction plots.
@@ -463,7 +463,7 @@ se_to_isee <- function(se, PValuePatterns = "p.val", LogFCPatterns = "_diff"){
 }
 
 
-#' impute_DEP()
+#' Imputation via DEP while keeping original data
 #' 
 #' Utilizes the DEP::impute() function to replace missing values. In addition, original raw data
 #' is retained in an additional assay.
@@ -495,9 +495,9 @@ impute_DEP <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "Min
   
 }
 
-#' add_assay()
+#' Add assay to se
 #' 
-#' Convinience function to add a new assay directly as the main assay. The old assay is reatined. 
+#' Convinience function to add a new assay directly as the main assay. The old assay is retained. 
 #' @param se Summarized experiment
 #' @param assay Assay to add as the main assay (first in the assays() list) 
 #' @param name Name of the added assay
@@ -518,7 +518,7 @@ add_assay <- function(se, new_assay, name, withDimnames = TRUE){
 }
 
 
-#' to_pdf()
+#' Plot to pdf
 #' 
 #' Convenience function to print plots as pdf document. 
 #'
@@ -546,7 +546,7 @@ to_pdf<-function(.data, filename, w=7,h=7){
 
 
 
-#' Fix_maxq_pig()
+#' Handling of pig derived data
 #' 
 #' Pig proteins are poorly annotated and have a different "style" when it comes to fasta files. Thus, the output of MaxQuant 
 #' is not directly usable. This function takes in a MaxQuant file from an experiment using pig derived proteins and a fasta
@@ -671,7 +671,9 @@ fix_maxq_pig <- function(proteingroups, peptides, fasta, mult_org = FALSE, obj =
 }
 
 
-#' get_network()
+#' Strind-db network for goi
+#' 
+#' Creates a network with known protein-protein interactions and maps expression values to nodes.
 #'
 #' @param genes List or vector of gene symbols
 #' @param species ID of species (human = 9606)
@@ -790,9 +792,9 @@ get_network <- function(genes, species = 9606, expression_data = NA, expand = FA
 }
 
 
-#' spectronaut_read_in()
+#' Spectronaut to se
 #' 
-#' Reads in MaxQuant or other output and creates a summarized experiment.
+#' Reads in spectronaut or other output and creates a summarized experiment.
 #'
 #' @param file path to proteinGroups or similar file
 #' @param gene_column name of gene_name column after janitor
@@ -878,9 +880,9 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
 
 
 
-#' fragpipe_read_in()
+#' fragpipe to se
 #' 
-#' Reads in MaxQuant or other output and creates a summarized experiment.
+#' Reads in fragpipe or other output and creates a summarized experiment.
 #'
 #' @param file path to proteinGroups or similar file
 #' @param gene_column name of gene_name column after janitor
@@ -931,8 +933,9 @@ fragpipe_read_in <- function(file, gene_column = "gene", protein_column = "prote
 }
 
 
-#' scatterPlot()
-#'
+#' Create a 2D scatterPlot
+#' 
+#' Plots two columns against each other and marks entries that differ more than standard_dev SD. This calculation is performed as a moving window.
 #' @param df data for plotting
 #' @param col_x string column name of x-axis data 
 #' @param col_y string column name of y-axis data
@@ -1036,7 +1039,6 @@ scatterPlot <- function(df, col_x, col_y, col_label = "gene_names", show_labels 
 }
 
 
-#' qphos_read_in_int()
 #' Read in Phosphoproteomics Data and Perform Initial Processing
 #'
 #' This function reads in phosphoproteomics data from the "Phospho (STY)Sites.txt" MaxQuant output, processes it by splitting protein groups,
@@ -1114,7 +1116,6 @@ phos_read_in_int <- function(file, gene_column = "gene_names", protein_column = 
   return(data_se)
 }
 
-#' phos_read_in_occ()
 #' Read in phosphoproteomics occupancy data and process it
 #'
 #' This function reads in phosphoproteomics occupancy data from the "Phospho (STY)Sites.txt" MaxQuant output,
@@ -1191,7 +1192,6 @@ phos_read_in_occ <- function(file, gene_column = "gene_names", protein_column = 
   return(data_se)
 }
 
-#' gct_to_long()
 #' Convert a GCT object to a long format data frame
 #'
 #' This function takes a GCT object (or a file containing GCT data) and converts it to a long format data frame.
@@ -1236,7 +1236,6 @@ gct_to_long <- function(gct, file = ""){
 }
 
 
-#' prep_ssgsea2()
 #' Prepare Data for Single Sample Gene Set Enrichment Analysis (ssGSEA)
 #'
 #' This function prepares the data from a SummarizedExperiment object for ssGSEA analysis. It removes duplicated rows based on the rowData sequence_window, creates a GCT object, and optionally writes the GCT object to a file.
@@ -1283,7 +1282,6 @@ prep_ssgsea2 <- function(se, file = ""){
   
 }
 
-#' to_long()
 #' Convert a SummarizedExperiment object to a long format data frame
 #'
 #' This function takes a SummarizedExperiment object and converts it to a long format data frame.
@@ -1322,7 +1320,6 @@ to_long <- function(se, assays_ = c("")){
 }
 
 
-#' get_coldata()
 #' Get column data from a SummarizedExperiment object
 #'
 #' @param se A SummarizedExperiment object.
@@ -1347,7 +1344,6 @@ get_rowdata <- function(se) {
   return(as.data.frame(rowData(se)))
 }
 
-#' my_theme()
 #' Custom theme for ggplot2
 #'
 #' This function applies a custom theme to a plot by combining the DEP::theme_DEP1()
@@ -1367,7 +1363,6 @@ my_theme <- function() {
     )
 }
 
-#' add_sign()
 #' Add Significance Information to a SummarizedExperiment Object
 #'
 #' This function takes a SummarizedExperiment object, calculates significance information,
@@ -1413,10 +1408,9 @@ add_sign <- function(se, p_thr = 0.05, diff_thr = 1){
 
 }
 
-#' long_test()
-#' Long Test Function
+#' Long Test
 #'
-#' This function returns test results for an se objectin long format.
+#' This function returns test results for an se object in long format.
 #'
 #' @param se An se object.
 #' @return A data frame.
@@ -1450,7 +1444,6 @@ long_test <- function(se){
   return(res)
 }
 
-#' clustered_heatmap()
 #' Create a clustered heatmap from a given SummarizedExperiment object
 #'
 #' @param se A SummarizedExperiment object.
@@ -1486,7 +1479,6 @@ clustered_heatmap <- function(se, indicate = "condition", type = "centered", k =
   return(list("plot" = p_heatmap, "df" = p_heatmap_data, "clusters" = split_df))
 }
 
-#' phospho_ora()
 #' Perform Over-representation Analysis (ORA) on Phosphoproteomics Data
 #'
 #' This function takes a SummarizedExperiment object and conducts Over-representation Analysis (ORA) on proteins with at least one significant phosphosite, using the clusterProfiler package.
@@ -1569,7 +1561,6 @@ phospho_ora <- function(se, contr = "all", OrgDb = "org.Hs.eg.db", pvalueCutoff 
   return(list("res" = ora_res, "df" = ora_res_df, "plot" = ora_plot))
 }
 
-#' write_phos()
 #' Write phosphoproteomics data to a file
 #'
 #' This function takes a SummarizedExperiment object, extracts the relevant
@@ -1605,8 +1596,7 @@ write_phos <- function(se, file = ""){
   
 }
 
-#' write_prot()
-#' Write phosphoproteomics data to a file
+#' Write proteomics data to a file
 #'
 #' This function takes a SummarizedExperiment object, extracts the relevant
 #' data, and writes it to a file.
@@ -1639,7 +1629,6 @@ write_prot <- function(se, file = ""){
   
 }
 
-#' prep_ksea()
 #' Prepare KSEA input data from SummarizedExperiment object
 #'
 #' This function processes a SummarizedExperiment object and extracts relevant information
@@ -1685,7 +1674,6 @@ prep_ksea <- function(se, contrast){
     return()
 }
 
-#' center_substring()
 #' Extract the centered substring of a given length from an input string
 #'
 #' This function extracts a substring of length `n` from the center of the input string. If `n` is greater than the length of the input string,
@@ -1709,7 +1697,6 @@ center_substring <- function(input_string, n) {
 }
 
 
-#' prep_phosR()
 #' Prepares Phosphorylation Data for Analysis
 #'
 #' This function takes a SummarizedExperiment object and prepares the data for
@@ -1777,7 +1764,6 @@ prep_phosR <- function(se, species = "human", numMotif = 5, numSub = 1, top = 30
 
 
 
-#' plot_signalome_map()
 #' Plot Signalome Map
 #'
 #' This function creates a Signalome Map plot using the PhosR::plotSignalomeMap function
@@ -1803,7 +1789,6 @@ plot_signalome_map <- function(signalome_res, kinase_signalome_color){
 }
 
 
-#' module_barplot()
 #' Create a bar plot with error bars for the given data
 #'
 #' This function takes a matrix and a signalome result, processes the data, and creates a bar plot with error bars.
@@ -1851,7 +1836,6 @@ module_barplot <- function(mat, signalome_res){
 }
 
 
-#' prep_phosR_from_ppe()
 #' Prepares phosphoproteomics data for PhosR analysis
 #'
 #' This function processes phosphoproteomics data, calculates kinase-substrate scores, and generates predictions for the given data.
@@ -1909,7 +1893,6 @@ prep_phosR_from_ppe <- function(ppe, species = "human", numMotif = 5, numSub = 1
   return(list("kinaseSubstrateScore" = kss, "kinaseSubstratePred" = ksp, "mat" = mat, "kinase_all_color" = kinase_all_color, "kinase_signalome_color" = kinase_signalome_color, "seq" = seq))
 }
 
-#' aov_scale_phosR()
 #' AOV Scale PhosR Function
 #'
 #' This function takes a ppe object and applies a series of transformations,
@@ -1941,7 +1924,6 @@ aov_scale_phosR <- function(ppe, p_cut = 0.05, fc_cut = 0.5, assay = "normalised
   return(ppe)
 }
 
-#' test_diff_phosR()
 #' Test Differential Phosphorylation
 #'
 #' This function tests differential phosphorylation using a linear model fit and an empirical Bayes approach.
@@ -2005,7 +1987,6 @@ test_diff_phosR <- function(ppe, contrast = c("treatment_vs_control"), test_all 
 }
 
 
-#' maxq_to_ppe()
 #' Convert MaxQuant output to PhosphoExperiment object
 #'
 #' This function reads a MaxQuant output file, filters the data, and converts it into a PhosphoExperiment object.
@@ -2045,11 +2026,12 @@ maxq_to_ppe <- function(file, sep="_rep_",
   #Filter false and low quality hits
   data <- data %>% filter(if_all(filt, ~ .x == ""))
   
+
   # Create assays for ppe
   int <- as.matrix(data[grep(paste0("intensity_.*", sep, "[1-9]*$"), colnames(data))]) %>% log2() 
-  mult_1 <- as.matrix(data[grep("intensity_.*_1", colnames(data))]) %>% log2()
-  mult_2 <- as.matrix(data[grep("intensity_.*_2", colnames(data))]) %>% log2()
-  mult_3 <- as.matrix(data[grep("intensity_.*_3", colnames(data))]) %>% log2()
+  mult_1 <- as.matrix(data[grep(paste0("intensity_.*", sep, "[1-9]_1"), colnames(data))]) %>% log2()
+  mult_2 <- as.matrix(data[grep(paste0("intensity_.*", sep, "[1-9]_2"), colnames(data))]) %>% log2()
+  mult_3 <- as.matrix(data[grep(paste0("intensity_.*", sep, "[1-9]_3"), colnames(data))]) %>% log2()
   
   # replace missing values with NA
   int[is.infinite(int)] <- NA 

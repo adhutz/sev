@@ -506,16 +506,21 @@ impute_DEP <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "Min
 #' @export
 #'
 add_assay <- function(se, new_assay, name, withDimnames = TRUE){
-  temp <- assay(se)
-  temp_n <- names(assays(se))[1]
   
-  assay(se, withDimnames = withDimnames) <- new_assay
-
-  names(assays(se))[1] <- name
-  assays(se)[[temp_n]] <- temp
-  
-  return(se)  
-}
+    if(name %in% names(assays(se))){
+      names(assays(se))[names(assays(se)) == name] <- paste0(name, "_old")
+    }
+    temp <- assay(se)
+    temp_n <- names(assays(se))[1]
+    assay(se, withDimnames = withDimnames) <- new_assay
+    assays(se, withDimnames = withDimnames)[[1]] <- new_assay
+    names(assays(se))[1] <- name
+    
+    # add old assay
+    assays(se)[[temp_n]] <- temp
+    
+    return(se)
+  }
 
 
 #' Plot to pdf

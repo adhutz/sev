@@ -13,7 +13,7 @@ knitr::opts_chunk$set(message = FALSE)
 
 ```{r include=FALSE}
 library(sev)
-library(DEP)
+library(DEP2)
 library(dplyr)
 library(clusterProfiler)
 library(dplyr)
@@ -85,7 +85,7 @@ se_filtered <- sev::filter_perseus(se, perc_na = 0.33, filter_mode = "each_group
 ```
 
 ## Imputation
-Now that rows with too many missing values are excluded, we can replace NAs with values. The *DEP::impute()* function already provides a variety of options. The *sev* package builds on that, but saves the raw data including NAs in another assay instead of overwriting it. In addition, a binary assay with 1 for imputed values and 0 for measured values is created to easily visualize missing data via iSEE afterwards. 
+Now that rows with too many missing values are excluded, we can replace NAs with values. The *dep2::impute()* function already provides a variety of options. The *sev* package builds on that, but saves the raw data including NAs in another assay instead of overwriting it. In addition, a binary assay with 1 for imputed values and 0 for measured values is created to easily visualize missing data via iSEE afterwards. 
 
 ### Possibility 1: Use DEP standard functions
 ```{r impute DEP}

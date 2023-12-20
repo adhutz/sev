@@ -1362,7 +1362,7 @@ get_rowdata <- function(se) {
 #' p + my_theme()
 #' @export
 my_theme <- function() {
-  DEP2::theme_DEP21() +
+  DEP2::theme_DEP1() +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1)
     )

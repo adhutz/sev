@@ -355,7 +355,7 @@ add_randna <- function(se){
 #' Performs GO-term enrichment via clusterprofiler for all contrasts of a summarized experiment.
 #' Results are added to the metadata.
 #'
-#' @param se with t-test results (e.g. via DEP test_diff())
+#' @param se with t-test results (e.g. via DEP2 test_diff())
 #' @param col_names name of columns on that enrichment is performed. If left empty, all columns ending with "_diff" are selected.
 #' @param simplify Should similar terms be merged (sim > 0.7)
 #' @param ont ontology
@@ -463,31 +463,31 @@ se_to_isee <- function(se, PValuePatterns = "p.val", LogFCPatterns = "_diff"){
 }
 
 
-#' Imputation via DEP while keeping original data
+#' Imputation via DEP2 while keeping original data
 #' 
-#' Utilizes the DEP::impute() function to replace missing values. In addition, original raw data
+#' Utilizes the DEP2::impute() function to replace missing values. In addition, original raw data
 #' is retained in an additional assay.
 #'
 #' @param se with missing data
-#' @param ... parameters for DEP::impute()
+#' @param ... parameters for DEP2::impute()
 #'
 #' @return se with imputed data in the main assay and raw data in another assay
 #' @export
 #'
-impute_DEP <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
+impute_DEP2 <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
                                "man", "min", "zero", "mixed", "nbavg"), ...){
   
   if(fun == "mixed"){
     
-    temp <- DEP::impute(se, fun = fun, randna = rowData(se)$randna, ...)
+    temp <- DEP2::impute(se, fun = fun, randna = rowData(se)$randna, ...)
     
   }else{
     
-    temp <- DEP::impute(se, fun = fun, ...)
+    temp <- DEP2::impute(se, fun = fun, ...)
     
   }
   
-  se <- add_assay(se, assay(temp), "imputed_DEP")
+  se <- add_assay(se, assay(temp), "imputed_DEP2")
   
   assays(se, withDimnames = FALSE)$imputed <- assay(se) %>% as.data.frame() %>% dplyr::mutate_all(~ ifelse(is.na(.x), 1,0)) %>% as.matrix()
   
@@ -818,7 +818,7 @@ get_network <- function(genes, species = 9606, expression_data = NA, expand = FA
 #' @importFrom BiocGenerics unique
 #' @importFrom tidyr pivot_wider
 #' @importFrom janitor make_clean_names clean_names
-#' @importFrom DEP make_unique
+#' @importFrom DEP2 make_unique
 #' @examples
 #' Mandatory columns: sample (sample name), condition (treatment), replicate
 #' @export
@@ -835,11 +835,11 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
   #turn dataframe (df) to wide format, which is required for summarised experiment (or perseus)
   data <- df %>% 
     mutate(cond_rep = paste0(condition, "_rep", replicate )) %>% # make yourself a new column with the condition and replicate pasted together
-    DEP::make_unique("genes", "uni_prot_ids", delim = ";") %>%#this is a function of DEP to make unique names of genes
+    DEP2::make_unique("genes", "uni_prot_ids", delim = ";") %>%#this is a function of DEP2 to make unique names of genes
     select(cond_rep, ID,genes,uni_prot_ids,  protein_descriptions,log2quantity, ibaq) %>% #I just select these columns because otherwise the 'pivot_wider' function is not working because each row contains non-unique info so everything is matched to everything
     tidyr::pivot_wider(names_from = cond_rep, values_from = c(log2quantity, ibaq)) %>% #make wide
     select(-ID) %>% #now I remove the ID col that was added when I ran make_unique, because I need to make unique again, because later I will need both ID and Name column
-    DEP::make_unique("genes", "uni_prot_ids", delim = ";") %>% #re-run
+    DEP2::make_unique("genes", "uni_prot_ids", delim = ";") %>% #re-run
     janitor::clean_names() %>% #clean_up col-names
     dplyr::rename(ID = id) %>% #clean up col names further
     dplyr::rename_all(list(~as.character(gsub("0_2", "0p2", .)))) %>% #clean up further, as this underscore separation is annoying later on 
@@ -901,7 +901,7 @@ spectronaut_read_in <- function(file, gene_column = "genes", protein_column = "u
 #' @importFrom BiocGenerics unique
 #' @importFrom tidyr pivot_wider
 #' @importFrom janitor make_clean_names clean_names
-#' @importFrom DEP make_unique
+#' @importFrom DEP2 make_unique
 #' @examples
 #' Mandatory columns: sample (sample name), condition (treatment), replicate
 #' @export
@@ -1065,7 +1065,7 @@ scatterPlot <- function(df, col_x, col_y, col_label = "gene_names", show_labels 
 #' @importFrom dplyr select filter
 #' @importFrom dplyr filter
 #' @importFrom tidyr pivot_longer pivot_wider
-#' @importFrom DEP make_se make_unique
+#' @importFrom DEP2 make_se make_unique
 #' 
 #' @return A summarizedExperiment containing the phosphoproteomics data.
 #' @examples
@@ -1115,7 +1115,7 @@ phos_read_in_int <- function(file, gene_column = "gene_names", protein_column = 
     experimental_design <- data.frame(experimental_design)
   }
   
-  data_se <- DEP::make_se(data_unique, which(colnames(data_unique) %in% gsub("intensity", "value",labels)), experimental_design)
+  data_se <- DEP2::make_se(data_unique, which(colnames(data_unique) %in% gsub("intensity", "value",labels)), experimental_design)
   rownames(data_se) <- data_unique$name
   names(assays(data_se)) <- "intensity_raw"
   return(data_se)
@@ -1140,7 +1140,7 @@ phos_read_in_int <- function(file, gene_column = "gene_names", protein_column = 
 #' @importFrom dplyr select filter
 #' @importFrom dplyr filter
 #' @importFrom tidyr pivot_longer pivot_wider
-#' @importFrom DEP make_se make_unique
+#' @importFrom DEP2 make_se make_unique
 #' 
 #' @return A SummarizedExperiment object containing the processed phosphoproteomics occupancy data.
 #' @examples
@@ -1351,18 +1351,18 @@ get_rowdata <- function(se) {
 
 #' Custom theme for ggplot2
 #'
-#' This function applies a custom theme to a plot by combining the DEP::theme_DEP1()
+#' This function applies a custom theme to a plot by combining the DEP2::theme_DEP21()
 #' function with additional theme elements.
 #'
 #' @return A ggplot2 theme object.
-#' @importFrom DEP theme_DEP1
+#' @importFrom DEP2 theme_DEP21
 #' @examples
 #' library(ggplot2)
 #' p <- ggplot(mtcars, aes(x = wt, y = mpg)) + geom_point()
 #' p + my_theme()
 #' @export
 my_theme <- function() {
-  DEP::theme_DEP1() +
+  DEP2::theme_DEP21() +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1)
     )
@@ -1459,7 +1459,7 @@ long_test <- function(se){
 #' 
 #' @return A list containing the heatmap plot, a data frame with the heatmap data, and a data frame with the protein clusters.
 #'
-#' @importFrom DEP plot_heatmap
+#' @importFrom DEP2 plot_heatmap
 #' @importFrom gdata cbindX
 #' @importFrom dplyr select
 #' @export
@@ -1470,9 +1470,9 @@ long_test <- function(se){
 #' result$df
 #' result$clusters
 clustered_heatmap <- function(se, indicate = "condition", type = "centered", k = 3, ...){
-  p_heatmap <- se %>% DEP::plot_heatmap(indicate = indicate, type = type, kmeans = TRUE, k = k)  
+  p_heatmap <- se %>% DEP2::plot_heatmap(indicate = indicate, type = type, kmeans = TRUE, k = k)  
 
-  p_heatmap_data <- se %>% DEP::plot_heatmap(indicate = indicate, type = type, kmeans = TRUE, k = k, plot = FALSE)  
+  p_heatmap_data <- se %>% DEP2::plot_heatmap(indicate = indicate, type = type, kmeans = TRUE, k = k, plot = FALSE)  
   
   split <- p_heatmap_data %>% select(k, protein) %>% split.data.frame(.$k)
   split <- lapply(split, function(x) select(x,protein))
@@ -1494,7 +1494,7 @@ clustered_heatmap <- function(se, indicate = "condition", type = "centered", k =
 #' @param pvalueCutoff Numeric value for the p-value cutoff. Default is 0.4.
 #' @param qvalueCutoff Numeric value for the q-value cutoff. Default is 0.8.
 #' @param ont A character vector specifying the Gene Ontology (GO) categories to be analyzed. Default is c("BP", "MF", "CC").
-#' @return A list containing the ora object, a combined dataframe and a ggplot depicting terms with q < 0.2
+#' @return A list containing the ora object, a combined dataframe and a ggplot DEP2icting terms with q < 0.2
 #' @import dplyr
 #' @import ggplot2
 #' @importFrom clusterProfiler enrichGO
@@ -1575,7 +1575,7 @@ phospho_ora <- function(se, contr = "all", OrgDb = "org.Hs.eg.db", pvalueCutoff 
 #' @param file The filename where the resulting data should be saved (default: current directory).
 #' @return relevant data
 #' @importFrom dplyr select ends_with
-#' @importFrom DEP get_df_wide
+#' @importFrom DEP2 get_df_wide
 #' @export
 write_phos <- function(se, file = ""){
   exp <- se %>% 
@@ -1610,7 +1610,7 @@ write_phos <- function(se, file = ""){
 #' @param file The filename where the resulting data should be saved (default: current directory).
 #' @return relevant data
 #' @importFrom dplyr select ends_with
-#' @importFrom DEP get_df_wide
+#' @importFrom DEP2 get_df_wide
 #' @export
 write_prot <- function(se, file = ""){
   exp <- se %>% 
@@ -2003,7 +2003,7 @@ test_diff_phosR <- function(ppe, contrast = c("treatment_vs_control"), test_all 
 #' @return A PhosphoExperiment object containing the processed data.
 #' @importFrom janitor make_clean_names
 #' @importFrom dplyr mutate filter starts_with contains select 
-#' @importFrom DEP make_unique
+#' @importFrom DEP2 make_unique
 #' @importFrom BiocGenerics colnames rownames
 #' @importFrom PhosR PhosphoExperiment
 #' @export

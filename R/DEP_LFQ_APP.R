@@ -1,13 +1,13 @@
 library(dplyr)
 library(tibble)
 library(SummarizedExperiment)
-library(DEP)
+library(DEP2)
 library(shiny)
 library(shinydashboard)
 
 ui <- shinyUI(
   dashboardPage(
-    dashboardHeader(title = "DEP - LFQ"),
+    dashboardHeader(title = "DEP2 - LFQ"),
     dashboardSidebar(
       sidebarMenu(
         menuItem("Files", selected = TRUE,
@@ -207,7 +207,7 @@ server <- shinyServer(function(input, output) {
     data <- data()
     cols <- grep("^LFQ", colnames(data))
 
-    filtered <- DEP:::filter_MaxQuant(data, input$filt)
+    filtered <- DEP2:::filter_MaxQuant(data, input$filt)
     unique_names <- make_unique(filtered, input$name, input$id)
 
     if (input$anno == "columns") {
@@ -224,7 +224,7 @@ server <- shinyServer(function(input, output) {
   })
 
   imp <- reactive({
-    DEP::impute(norm(), input$imputation)
+    DEP2::impute(norm(), input$imputation)
   })
 
   df <- reactive({
@@ -332,11 +332,11 @@ server <- shinyServer(function(input, output) {
 
     ### Reactive functions ### ------------------------------------------------
     excluded <- reactive({
-      DEP:::exclude_deps(dep(), input$exclude)
+      DEP2:::exclude_deps(dep(), input$exclude)
     })
 
     selected <- reactive({
-      DEP:::select_deps(excluded(), input$select)
+      DEP2:::select_deps(excluded(), input$select)
     })
 
     res <- reactive({
@@ -344,7 +344,7 @@ server <- shinyServer(function(input, output) {
     })
 
     table <- reactive({
-      DEP:::get_table(res(), input$pres)
+      DEP2:::get_table(res(), input$pres)
     })
 
     selected_plot_input <- reactive ({

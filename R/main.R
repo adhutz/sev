@@ -1351,11 +1351,11 @@ get_rowdata <- function(se) {
 
 #' Custom theme for ggplot2
 #'
-#' This function applies a custom theme to a plot by combining the DEP2::theme_DEP21()
+#' This function applies a custom theme to a plot by combining the DEP2::theme_DEP1()
 #' function with additional theme elements.
 #'
 #' @return A ggplot2 theme object.
-#' @importFrom DEP2 theme_DEP21
+#' @importFrom DEP2 theme_DEP1
 #' @examples
 #' library(ggplot2)
 #' p <- ggplot(mtcars, aes(x = wt, y = mpg)) + geom_point()

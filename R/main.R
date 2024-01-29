@@ -2082,3 +2082,100 @@ maxq_to_ppe <- function(file, sep="_rep_",
   rownames(ppe) <- paste(rowdata$protein_ids, rowdata$gene_names, paste0(rowdata$amino_acid, rowdata$positions_within_proteins), rowdata$sequence_window, sep = ";")
   return(ppe)
 }
+
+
+#' Read in Spectronaut Output
+#'
+#' This function reads in data from Spectronaut output, cleans and formats the data and finally returns the data as a summarized experiment.
+#'
+#' @param candidates Character string representing the path to the candidates file. Alternatively, a data frame can be passed.
+#' @param report Character string representing the path to the report file. Alternatively, a data frame can be passed.
+#' @param contrasts Character vector representing the contrasts.
+#' @param conditionSetup Character string representing the path to the condition setup file. Alternatively, a data frame can be passed.
+#'
+#' @return A data frame with the processed and merged data.
+#'
+#' @export
+#'
+#' @importFrom vroom vroom
+#' @importFrom janitor clean_names
+#' @importFrom dplyr rename_all, select, mutate, filter
+#' @importFrom tidyr pivot_wider
+#' @importFrom DEP2 make_se
+
+spectronaut_to_se <- function(candidates = NULL, report = NULL, contrasts = NULL, conditionSetup = NULL){
+  
+  #####read in data (spectronaut output from Fatih Demir)
+  if(typeof(candidates) == "character"){
+    df_candidates <- vroom::vroom(candidates, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
+      rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
+      janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
+      rename_all(.funs = list(~gsub("pg_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
+      rename_all(.funs = list(~gsub("r_", "", .)))    
+  }else{
+    df_candidates <- candidates
+  }
+  
+  #####read in data (spectronaut output from Fatih Demir)  
+  if(typeof(report) == "character"){
+    df_wide_report <- vroom(report, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
+      rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
+      janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
+      rename_all(.funs = list(~gsub("pg_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
+      rename_all(.funs = list(~gsub("r_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
+      rename_all(.funs = list(~gsub("x[0-9]*_", "", .)))
+  }else{
+    df_wide_report <- report
+  }
+  
+  #####read in colData
+  if(typeof(conditionSetup) == "character"){
+    coldata <- vroom(conditionSetup, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
+      rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
+      janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
+      mutate(label = paste0(condition, "_", replicate)) %>% 
+      dplyr::select(run_label, condition, replicate, file_name) %>%
+      dplyr::rename(label = run_label)
+  }else{
+    coldata <- conditionSetup
+  }
+  
+  
+  ##### get contrasts in correct "orientation"
+  if(!is.null(contrasts)){
+    df_candidates_new <- data.frame()
+    for(con in contrasts){
+      condition_num <- strsplit(con, "_vs_")[[1]][1]
+      condition_den <- strsplit(con, "_vs_")[[1]][2]
+      
+      temp <- df_candidates %>% filter(condition_numerator == condition_num & condition_denominator == condition_den) %>%
+        mutate(diff = avg_log2_ratio,
+               contrast = con)
+      
+      temp2 <- df_candidates %>% filter(condition_numerator == condition_den & condition_denominator == condition_num) %>%
+        mutate(diff = -1 * avg_log2_ratio,
+               contrast = con)
+      
+      df_candidates_new <- rbind(df_candidates_new, temp, temp2)
+    }
+  }else{
+    df_candidates_new <- df_candidates %>% 
+      mutate(diff = avg_log2_ratio, 
+             contrast = paste0(condition_numerator, "_vs_", condition_denominator))
+  }
+  ##### rename columns
+  df_candidates_new <- df_candidates_new %>% dplyr::rename(p.val = pvalue, p.adj = qvalue) %>% 
+    dplyr::select(diff, contrast, p.val, p.adj, protein_groups)
+  
+  ##### pivot
+  df_candidates_new <- df_candidates_new %>% tidyr::pivot_wider(names_from = "contrast", values_from = c("diff", "p.val", "p.adj"), names_glue = "{contrast}_{.value}")
+  
+  ##### merge with report
+  combined <- merge(df_candidates_new, df_wide_report, by = "protein_groups", all.y = T) %>%
+    make_unique("genes", "protein_groups", delim = ";") %>%
+    mutate(gene_names = genes,
+           protein_ids = protein_groups)
+  
+  
+  return(DEP2::make_se(combined, grep(".*_quantity$", colnames(combined)), coldata)) 
+}

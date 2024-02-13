@@ -27,7 +27,11 @@ Imports:
     rbioapi,
     PhosR,
     gdata,
-    cmapR
+    cmapR,
+    ggpubr,
+    ggrepel,
+    patchwork
+    
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 Remotes: 

@@ -961,7 +961,7 @@ scatterPlot <- function(df, col_x, col_y, col_label = "gene_names", show_labels 
   x <- df[,col_x]
   y <- df[,col_y]
   col_label <- df[,col_label]
-  mod = lm(y~x)
+  mod = lm(unlist(y)~unlist(x))
   slope=mod$coefficients["x"]
   intercept=if (is.na(mod$coefficients["(Intercept)"])) 0 else mod$coefficients["(Intercept)"]
   angle = atan(slope)
@@ -2092,7 +2092,8 @@ maxq_to_ppe <- function(file, sep="_rep_",
 #' @param report Character string representing the path to the report file. Alternatively, a data frame can be passed.
 #' @param contrasts Character vector representing the contrasts.
 #' @param conditionSetup Character string representing the path to the condition setup file. Alternatively, a data frame can be passed.
-#'
+#' @param quant_col Character string representing the column name for the quantification data (default: "log2quantity"). If other than "log2quantiy", data is log2 transformed in the process!
+#' 
 #' @return A data frame with the processed and merged data.
 #'
 #' @export
@@ -2103,79 +2104,195 @@ maxq_to_ppe <- function(file, sep="_rep_",
 #' @importFrom tidyr pivot_wider
 #' @importFrom DEP2 make_se
 
-spectronaut_to_se <- function(candidates = NULL, report = NULL, contrasts = NULL, conditionSetup = NULL){
-  
-  #####read in data (spectronaut output from Fatih Demir)
-  if(typeof(candidates) == "character"){
-    df_candidates <- vroom::vroom(candidates, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
-      rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
-      janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
-      rename_all(.funs = list(~gsub("pg_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
-      rename_all(.funs = list(~gsub("r_", "", .)))    
-  }else{
-    df_candidates <- candidates
-  }
-  
-  #####read in data (spectronaut output from Fatih Demir)  
-  if(typeof(report) == "character"){
-    df_wide_report <- vroom(report, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
-      rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
-      janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
-      rename_all(.funs = list(~gsub("pg_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
-      rename_all(.funs = list(~gsub("r_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
-      rename_all(.funs = list(~gsub("x[0-9]*_", "", .)))
-  }else{
-    df_wide_report <- report
-  }
-  
-  #####read in colData
-  if(typeof(conditionSetup) == "character"){
-    coldata <- vroom(conditionSetup, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
-      rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
-      janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
-      mutate(label = paste0(condition, "_", replicate)) %>% 
-      dplyr::select(run_label, condition, replicate, file_name) %>%
-      dplyr::rename(label = run_label)
-  }else{
-    coldata <- conditionSetup
-  }
-  
-  
-  ##### get contrasts in correct "orientation"
-  if(!is.null(contrasts)){
-    df_candidates_new <- data.frame()
-    for(con in contrasts){
-      condition_num <- strsplit(con, "_vs_")[[1]][1]
-      condition_den <- strsplit(con, "_vs_")[[1]][2]
-      
-      temp <- df_candidates %>% filter(condition_numerator == condition_num & condition_denominator == condition_den) %>%
-        mutate(diff = avg_log2_ratio,
-               contrast = con)
-      
-      temp2 <- df_candidates %>% filter(condition_numerator == condition_den & condition_denominator == condition_num) %>%
-        mutate(diff = -1 * avg_log2_ratio,
-               contrast = con)
-      
-      df_candidates_new <- rbind(df_candidates_new, temp, temp2)
+spectronaut_to_se <- function(candidates = NULL, report = NULL, contrasts = NULL, conditionSetup = NULL, quant_col = "log2quantity"){
+    #####read in data (spectronaut output from Fatih Demir)
+    if(typeof(candidates) == "character"){
+      df_candidates <- vroom::vroom(candidates, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
+        rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
+        janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
+        rename_all(.funs = list(~gsub("pg_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
+        rename_all(.funs = list(~gsub("r_", "", .)))
+    }else{
+      df_candidates <- candidates
     }
-  }else{
-    df_candidates_new <- df_candidates %>% 
-      mutate(diff = avg_log2_ratio, 
-             contrast = paste0(condition_numerator, "_vs_", condition_denominator))
+    #####read in data (spectronaut output from Fatih Demir)  
+    if(typeof(report) == "character"){
+      df_wide_report <- vroom(report, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
+        rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
+        janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
+        rename_all(.funs = list(~gsub("pg_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
+        rename_all(.funs = list(~gsub("r_", "", .))) %>%  # pg probably stands for protein group, just remove it from column names
+        rename_all(.funs = list(~gsub("x[0-9]*_", "", .)))
+    }else{
+      df_wide_report <- report
+    }
+    #####read in colData
+    if(typeof(conditionSetup) == "character"){
+      coldata <- vroom(conditionSetup, delim = "\t", col_names = T,guess_max = 30000,  .name_repair = janitor::make_clean_names) %>% #https://www.rdocumentation.org/packages/readxl/versions/1.3.1/topics/cell-specification
+        rename_all(tolower) %>% #turn all column names to lower case (makes it easier for later code writing)
+        janitor::clean_names() %>% #make column names clean and unique (makes later coding easier)
+        mutate(label = paste0(condition, "_", replicate)) %>% 
+        dplyr::select(run_label, condition, replicate, file_name) %>%
+        dplyr::rename(label = run_label) %>% 
+        mutate(label = paste0(janitor::make_clean_names(label),"_", quant_col))
+    }else{
+      coldata <- conditionSetup
+    }
+    
+    ##### get contrasts in correct "orientation"
+    if(!is.null(contrasts)){
+      df_candidates_new <- data.frame()
+      for(con in contrasts){
+        condition_num <- strsplit(con, "_vs_")[[1]][1]
+        condition_den <- strsplit(con, "_vs_")[[1]][2]
+        temp <- df_candidates %>% filter(condition_numerator == condition_num & condition_denominator == condition_den) %>%
+          mutate(diff = avg_log2_ratio,
+                 contrast = con)
+        temp2 <- df_candidates %>% filter(condition_numerator == condition_den & condition_denominator == condition_num) %>%
+          mutate(diff = -1 * avg_log2_ratio,
+                 contrast = con)
+        df_candidates_new <- rbind(df_candidates_new, temp, temp2)
+      }
+    }else{
+      df_candidates_new <- df_candidates %>% 
+        mutate(diff = avg_log2_ratio, 
+               contrast = paste0(condition_numerator, "_vs_", condition_denominator))
+    }
+    ##### rename columns
+    df_candidates_new <- df_candidates_new %>% dplyr::rename(p.val = pvalue, p.adj = qvalue) %>% 
+      dplyr::select(diff, contrast, p.val, p.adj, protein_groups)
+    ##### pivot
+    df_candidates_new <- df_candidates_new %>% tidyr::pivot_wider(names_from = "contrast", values_from = c("diff", "p.val", "p.adj"), names_glue = "{contrast}_{.value}")
+    ##### merge with report
+    combined <- merge(df_candidates_new, df_wide_report, by = "protein_groups", all.y = T) %>%
+      make_unique("genes", "protein_groups", delim = ";") %>%
+      mutate(gene_names = genes,
+             protein_ids = protein_groups)
+    
+    
+    return(DEP2::make_se(combined, grep(paste0(".*_", quant_col), colnames(combined)), coldata, log2transform = ifelse(quant_col == "log2quantity", F, T))) 
   }
-  ##### rename columns
-  df_candidates_new <- df_candidates_new %>% dplyr::rename(p.val = pvalue, p.adj = qvalue) %>% 
-    dplyr::select(diff, contrast, p.val, p.adj, protein_groups)
+
+#' Create a correlation plot with different conditions and labels
+#'
+#' This function takes a dataframe and creates a scatter plot with correlation
+#' analysis, highlighting points based on certain criteria such as being in a
+#' gene list or having a rank among the top N differences.
+#'
+#' @param df A data frame with columns for x, y, and label names.
+#' @param x_column Character string specifying the column name for the x-axis values.
+#' @param y_column Character string specifying the column name for the y-axis values.
+#' @param label_names Character string specifying the column name for the labels.
+#' @param gene_list A character vector of gene names to be highlighted. Default is an empty vector.
+#' @param top_n_diff_prots Integer specifying the number of top differing proteins to consider. Default is  20.
+#'
+#' @return A list containing the plot and subsets of the data used for each part of the plot.
+#' @export
+#'
+#' @importFrom dplyr select, filter, mutate
+#' @importFrom ggplot2 ggplot, geom_point, geom_smooth, geom_abline, theme_bw, lims
+#' @importFrom patchwork plot_layout
+#' @importFrom ggpubr stat_cor
+#' @importFrom ggrepel geom_label_repel
+#' @importFrom scales scale_shape_manual, scale_fill_manual
+
+corr_plot <- function(df, x_column, y_column, label_names, gene_list=c(""), top_n_diff_prots = 20) {
   
-  ##### pivot
-  df_candidates_new <- df_candidates_new %>% tidyr::pivot_wider(names_from = "contrast", values_from = c("diff", "p.val", "p.adj"), names_glue = "{contrast}_{.value}")
-  
-  ##### merge with report
-  combined <- merge(df_candidates_new, df_wide_report, by = "protein_groups", all.y = T) %>%
-    make_unique("genes", "protein_groups", delim = ";") %>%
-    mutate(gene_names = genes,
-           protein_ids = protein_groups)
+  x_char <- df %>% dplyr::select({{x_column}}) %>% colnames()
+  y_char <- df %>% dplyr::select({{y_column}}) %>% colnames()
   
   
-  return(DEP2::make_se(combined, grep(".*_quantity$", colnames(combined)), coldata)) 
+  
+  df <- df %>% dplyr::select({{x_column}}, {{y_column}}, {{label_names}}) %>%
+    filter(!is.na({{x_column}} | !is.na({{y_column}}))) %>% 
+    mutate(abs_diff = ifelse((is.na({{x_column}}) | is.na({{y_column}})), 0,abs({{x_column}} - {{y_column}})),
+           top_n_diff_prots = ifelse(rank(dplyr::desc(abs_diff), ties.method = "first") <= top_n_diff_prots, TRUE, FALSE),
+           in_gene_list = {{label_names}} %in% gene_list)
+  
+  sub_1 <- df %>% filter(!is.na({{x_column}}) & !is.na({{y_column}}))
+  sub_2 <- df %>% filter(top_n_diff_prots == TRUE & !{{label_names}} %in% gene_list)
+  sub_3 <- df %>% filter(in_gene_list)
+  
+  x_min = min(dplyr::select(sub_1, c({{x_column}}, {{y_column}})))
+  x_max = max(dplyr::select(sub_1, c({{x_column}}, {{y_column}})))
+  
+  # Plot common genes
+  p1 <- ggplot(sub_1, 
+               aes(x = {{x_column}}, 
+                   y = {{y_column}}, 
+                   label = {{label_names}})) + 
+    
+    geom_point(aes(fill = factor(in_gene_list, levels = c(TRUE, FALSE)), shape = top_n_diff_prots), size = 2, alpha = 0.4) +
+    
+    scale_shape_manual(values = c(21,23), drop = FALSE) +
+    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"), drop = FALSE, guide = "none") +
+    
+    geom_label_repel(data = sub_2,
+                     color = "black",
+                     show.legend = FALSE,
+                     max.overlaps = Inf) +
+    geom_label_repel(data = sub_3,
+                     color = "firebrick",
+                     show.legend = FALSE,
+                     max.overlaps = Inf) +
+    
+    geom_smooth(data = sub_1, method = "lm", color = "navy",se = FALSE, size = 0.2, linetype = "dashed") +
+    geom_abline(intercept = 0, linetype = "solid", color = "black") +
+    ggpubr::stat_cor(aes(label = ..r.label..))+
+    labs(title = "Common proteins")+
+    lims(x = c(x_min, x_max), y = c(x_min, x_max)) +
+    theme_bw()
+  
+  
+  sub_4 <- df %>% filter(!is.na({{x_column}}) & is.na({{y_column}})) %>% 
+    mutate({{y_column}} := "NA")
+  sub_5 <- sub_4 %>% filter(!in_gene_list)
+  sub_6 <- sub_4 %>% filter(in_gene_list)
+  
+  p2 <- ggplot(sub_4, aes(x = {{y_column}}, y = {{x_column}}, label = {{label_names}})) +
+    geom_point(aes(fill = factor(in_gene_list, levels = c(TRUE, FALSE))), size = 2, position = position_jitter(w = 0.3, h = 0), alpha = 0.4, shape = 21) +
+    
+    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"), guide = "none", drop = FALSE) +
+    geom_label_repel(data = filter(sub_6, in_gene_list),
+                     color = "firebrick",
+                     show.legend = FALSE,
+                     max.overlaps = Inf) +
+    labs(title = x_char, fill = "Target gene")+
+    theme_bw()
+  
+  sub_7 <- df %>% filter(is.na({{x_column}}) & !is.na({{y_column}})) %>% 
+    mutate({{x_column}} := "NA")
+  sub_8 <- sub_7 %>% filter(!in_gene_list)
+  sub_9 <- sub_7 %>% filter(in_gene_list)
+  
+  p3 <- ggplot(sub_7, aes(x = {{x_column}}, y = {{y_column}}, label = {{label_names}})) +
+    geom_point(aes(fill = factor(in_gene_list, levels = c(TRUE, FALSE))), size = 2, position = position_jitter(w = 0.1, h = 0), alpha = 0.4, shape = 21) +
+    
+    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"), drop = FALSE) +
+    geom_label_repel(data = filter(sub_9, in_gene_list),
+                     color = "firebrick",
+                     show.legend = FALSE,
+                     max.overlaps = Inf) +
+    labs(title = y_char, fill = "Target gene")+
+    theme_bw()
+  
+  
+  panel_list <- list()
+  panel_list[["common"]] <- p1 + 
+    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"))
+  panel_list[[x_char]] <- p2+ 
+    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"))
+  panel_list[[y_char]] <- p3+ 
+    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"))
+  
+  
+  l <- list()
+  l[["plot"]] <- (p1 + p2 + p3)+ 
+    patchwork::plot_layout(guides = 'collect', widths = c(0.6,0.2,0.2))
+  l[["common"]] <- sub_1
+  l[[x_char]] <- sub_4
+  l[[y_char]] <- sub_7
+  l[["panels"]] <- panel_list
+  
+  return(l)
 }

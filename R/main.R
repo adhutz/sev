@@ -2190,11 +2190,10 @@ spectronaut_to_se <- function(candidates = NULL, report = NULL, contrasts = NULL
 #' @export
 #'
 #' @importFrom dplyr select, filter, mutate
-#' @importFrom ggplot2 ggplot, geom_point, geom_smooth, geom_abline, theme_bw, lims
+#' @importFrom ggplot2 ggplot, geom_point, geom_smooth, geom_abline, theme_bw, lims, scale_shape_manual, scale_fill_manual
 #' @importFrom patchwork plot_layout
 #' @importFrom ggpubr stat_cor
 #' @importFrom ggrepel geom_label_repel
-#' @importFrom scales scale_shape_manual, scale_fill_manual
 
 corr_plot <- function(df, x_column, y_column, label_names, gene_list=c(""), top_n_diff_prots = 20) {
   

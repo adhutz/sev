@@ -477,6 +477,8 @@ se_to_isee <- function(se, PValuePatterns = "p.val", LogFCPatterns = "_diff"){
 impute_DEP2 <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "MinProb",
                                "man", "min", "zero", "mixed", "nbavg"), ...){
   
+  assays(se, withDimnames = FALSE)$imputed <- assay(se) %>% as.data.frame() %>% dplyr::mutate_all(~ ifelse(is.na(.x), 1,0)) %>% as.matrix()
+  
   if(fun == "mixed"){
     
     temp <- DEP2::impute(se, fun = fun, randna = rowData(se)$randna, ...)
@@ -489,7 +491,6 @@ impute_DEP2 <- function(se, fun = c("bpca", "knn", "QRILC", "MLE", "MinDet", "Mi
   
   se <- add_assay(se, assay(temp), "imputed_DEP2")
   
-  assays(se, withDimnames = FALSE)$imputed <- assay(se) %>% as.data.frame() %>% dplyr::mutate_all(~ ifelse(is.na(.x), 1,0)) %>% as.matrix()
   
   return(se)
   

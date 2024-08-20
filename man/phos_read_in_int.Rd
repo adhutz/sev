@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{phos_read_in_int}
 \alias{phos_read_in_int}
-\title{qphos_read_in_int()
-Read in Phosphoproteomics Data and Perform Initial Processing}
+\title{Read in Phosphoproteomics Data and Perform Initial Processing}
 \usage{
 phos_read_in_int(
   file,

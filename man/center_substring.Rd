@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{center_substring}
 \alias{center_substring}
-\title{center_substring()
-Extract the centered substring of a given length from an input string}
+\title{Extract the centered substring of a given length from an input string}
 \usage{
 center_substring(input_string, n)
 }

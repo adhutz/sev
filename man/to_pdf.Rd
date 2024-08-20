@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{to_pdf}
 \alias{to_pdf}
-\title{to_pdf()}
+\title{Plot to pdf}
 \usage{
 to_pdf(.data, filename, w = 7, h = 7)
 }

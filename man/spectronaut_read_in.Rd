@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{spectronaut_read_in}
 \alias{spectronaut_read_in}
-\title{spectronaut_read_in()}
+\title{Spectronaut to se}
 \usage{
 spectronaut_read_in(
   file,
@@ -39,7 +39,7 @@ replicate number.}
 summarized experiment
 }
 \description{
-Reads in MaxQuant or other output and creates a summarized experiment.
+Reads in spectronaut or other output and creates a summarized experiment.
 }
 \examples{
 Mandatory columns: sample (sample name), condition (treatment), replicate

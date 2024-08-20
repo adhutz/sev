@@ -2,9 +2,9 @@
 % Please edit documentation in R/main.R
 \name{split_genes}
 \alias{split_genes}
-\title{Split_genes()}
+\title{Handling of columns with multiple entries}
 \usage{
-split_genes(table, colname = "gene_names", keep_all = FALSE)
+split_genes(table, colname = "gene_names", keep_all = FALSE, sep = ";")
 }
 \arguments{
 \item{table}{dataframe}
@@ -13,6 +13,8 @@ split_genes(table, colname = "gene_names", keep_all = FALSE)
 
 \item{keep_all}{if TRUE, all entries are retained in additional rows. If FALSE,
 only the first name/id is kept.}
+
+\item{sep}{separator}
 }
 \value{
 table with split entries

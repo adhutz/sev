@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{write_phos}
 \alias{write_phos}
-\title{write_phos()
-Write phosphoproteomics data to a file}
+\title{Write phosphoproteomics data to a file}
 \usage{
 write_phos(se, file = "")
 }

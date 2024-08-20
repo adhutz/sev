@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{long_test}
 \alias{long_test}
-\title{long_test()
-Long Test Function}
+\title{Long Test}
 \usage{
 long_test(se)
 }
@@ -14,7 +13,7 @@ long_test(se)
 A data frame.
 }
 \description{
-This function returns test results for an se objectin long format.
+This function returns test results for an se object in long format.
 }
 \examples{
 # Example usage:

@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{prep_ssgsea2}
 \alias{prep_ssgsea2}
-\title{prep_ssgsea2()
-Prepare Data for Single Sample Gene Set Enrichment Analysis (ssGSEA)}
+\title{Prepare Data for Single Sample Gene Set Enrichment Analysis (ssGSEA)}
 \usage{
 prep_ssgsea2(se, file = "")
 }

@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{plot_signalome_map}
 \alias{plot_signalome_map}
-\title{plot_signalome_map()
-Plot Signalome Map}
+\title{Plot Signalome Map}
 \usage{
 plot_signalome_map(signalome_res, kinase_signalome_color)
 }

@@ -31,7 +31,6 @@ Imports:
     ggpubr,
     ggrepel,
     patchwork
-    
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 Remotes: 

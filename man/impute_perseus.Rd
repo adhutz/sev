@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{impute_perseus}
 \alias{impute_perseus}
-\title{Impute_perseus()}
+\title{Impute as with perseus}
 \usage{
 impute_perseus(se, width = 0.3, downshift = 1.8, per_col = T)
 }

@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{module_barplot}
 \alias{module_barplot}
-\title{module_barplot()
-Create a bar plot with error bars for the given data}
+\title{Create a bar plot with error bars for the given data}
 \usage{
 module_barplot(mat, signalome_res)
 }

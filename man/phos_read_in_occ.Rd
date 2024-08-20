@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{phos_read_in_occ}
 \alias{phos_read_in_occ}
-\title{phos_read_in_occ()
-Read in phosphoproteomics occupancy data and process it}
+\title{Read in phosphoproteomics occupancy data and process it}
 \usage{
 phos_read_in_occ(
   file,

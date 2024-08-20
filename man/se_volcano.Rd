@@ -2,16 +2,32 @@
 % Please edit documentation in R/main.R
 \name{se_volcano}
 \alias{se_volcano}
-\title{se_volcano()}
+\title{Colored volcano plot}
 \usage{
-se_volcano(se, contrast_, id_col = "gene_names")
+se_volcano(
+  se,
+  contrast,
+  id_col = "gene_names",
+  target_names = c(""),
+  label_sign = TRUE,
+  label_targets = TRUE,
+  max.overlaps = Inf
+)
 }
 \arguments{
 \item{se}{summarized experiment}
 
-\item{contrast_}{contrast}
+\item{id_col}{id column that contains targets}
 
-\item{id_col}{id column}
+\item{target_names}{targets to label}
+
+\item{label_sign}{if TRUE, significant genes are labeled}
+
+\item{label_targets}{if TRUE, target genes are labeled}
+
+\item{max.overlaps}{maximal overlaps for labels. Set to Inf to label everything}
+
+\item{contrast_}{contrast}
 }
 \value{
 volcano plot

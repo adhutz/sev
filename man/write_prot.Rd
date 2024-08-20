@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{write_prot}
 \alias{write_prot}
-\title{write_prot()
-Write phosphoproteomics data to a file}
+\title{Write proteomics data to a file}
 \usage{
 write_prot(se, file = "")
 }

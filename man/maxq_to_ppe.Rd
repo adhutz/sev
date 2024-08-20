@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{maxq_to_ppe}
 \alias{maxq_to_ppe}
-\title{maxq_to_ppe()
-Convert MaxQuant output to PhosphoExperiment object}
+\title{Convert MaxQuant output to PhosphoExperiment object}
 \usage{
 maxq_to_ppe(
   file,

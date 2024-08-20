@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{prep_phosR_from_ppe}
 \alias{prep_phosR_from_ppe}
-\title{prep_phosR_from_ppe()
-Prepares phosphoproteomics data for PhosR analysis}
+\title{Prepares phosphoproteomics data for PhosR analysis}
 \usage{
 prep_phosR_from_ppe(
   ppe,

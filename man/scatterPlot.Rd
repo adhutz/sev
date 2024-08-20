@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{scatterPlot}
 \alias{scatterPlot}
-\title{scatterPlot()}
+\title{Create a 2D scatterPlot}
 \usage{
 scatterPlot(
   df,
@@ -36,5 +36,5 @@ scatterPlot(
 list containing the scatterplot and dfs for highlighted entries
 }
 \description{
-scatterPlot()
+Plots two columns against each other and marks entries that differ more than standard_dev SD. This calculation is performed as a moving window.
 }

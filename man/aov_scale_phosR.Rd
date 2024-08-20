@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{aov_scale_phosR}
 \alias{aov_scale_phosR}
-\title{aov_scale_phosR()
-AOV Scale PhosR Function}
+\title{AOV Scale PhosR Function}
 \usage{
 aov_scale_phosR(ppe, p_cut = 0.05, fc_cut = 0.5, assay = "normalised")
 }

@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{get_coldata}
 \alias{get_coldata}
-\title{get_coldata()
-Get column data from a SummarizedExperiment object}
+\title{Get column data from a SummarizedExperiment object}
 \usage{
 get_coldata(se)
 }
@@ -14,7 +13,6 @@ get_coldata(se)
 A data.frame containing the column data.
 }
 \description{
-get_coldata()
 Get column data from a SummarizedExperiment object
 }
 \examples{

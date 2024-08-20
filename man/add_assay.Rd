@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{add_assay}
 \alias{add_assay}
-\title{add_assay()}
+\title{Add assay to se}
 \usage{
 add_assay(se, new_assay, name, withDimnames = TRUE)
 }
@@ -17,5 +17,5 @@ add_assay(se, new_assay, name, withDimnames = TRUE)
 se with added assay. Old main assay is retained.
 }
 \description{
-Convinience function to add a new assay directly as the main assay. The old assay is reatined.
+Convinience function to add a new assay directly as the main assay. The old assay is retained.
 }

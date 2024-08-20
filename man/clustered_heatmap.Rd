@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{clustered_heatmap}
 \alias{clustered_heatmap}
-\title{clustered_heatmap()
-Create a clustered heatmap from a given SummarizedExperiment object}
+\title{Create a clustered heatmap from a given SummarizedExperiment object}
 \usage{
 clustered_heatmap(se, indicate = "condition", type = "centered", k = 3, ...)
 }
@@ -22,7 +21,6 @@ clustered_heatmap(se, indicate = "condition", type = "centered", k = 3, ...)
 A list containing the heatmap plot, a data frame with the heatmap data, and a data frame with the protein clusters.
 }
 \description{
-clustered_heatmap()
 Create a clustered heatmap from a given SummarizedExperiment object
 }
 \examples{

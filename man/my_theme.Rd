@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{my_theme}
 \alias{my_theme}
-\title{my_theme()
-Custom theme for ggplot2}
+\title{Custom theme for ggplot2}
 \usage{
 my_theme()
 }
@@ -11,7 +10,7 @@ my_theme()
 A ggplot2 theme object.
 }
 \description{
-This function applies a custom theme to a plot by combining the DEP::theme_DEP1()
+This function applies a custom theme to a plot by combining the DEP2::theme_DEP1()
 function with additional theme elements.
 }
 \examples{

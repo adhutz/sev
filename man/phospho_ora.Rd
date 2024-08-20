@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{phospho_ora}
 \alias{phospho_ora}
-\title{phospho_ora()
-Perform Over-representation Analysis (ORA) on Phosphoproteomics Data}
+\title{Perform Over-representation Analysis (ORA) on Phosphoproteomics Data}
 \usage{
 phospho_ora(
   se,
@@ -28,7 +27,7 @@ phospho_ora(
 \item{ont}{A character vector specifying the Gene Ontology (GO) categories to be analyzed. Default is c("BP", "MF", "CC").}
 }
 \value{
-A list containing the ora object, a combined dataframe and a ggplot depicting terms with q < 0.2
+A list containing the ora object, a combined dataframe and a ggplot DEP2icting terms with q < 0.2
 }
 \description{
 This function takes a SummarizedExperiment object and conducts Over-representation Analysis (ORA) on proteins with at least one significant phosphosite, using the clusterProfiler package.

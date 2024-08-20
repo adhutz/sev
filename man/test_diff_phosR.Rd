@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{test_diff_phosR}
 \alias{test_diff_phosR}
-\title{test_diff_phosR()
-Test Differential Phosphorylation}
+\title{Test Differential Phosphorylation}
 \usage{
 test_diff_phosR(
   ppe,

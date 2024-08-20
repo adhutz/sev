@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{get_network}
 \alias{get_network}
-\title{get_network()}
+\title{Strind-db network for goi}
 \usage{
 get_network(
   genes,
@@ -37,5 +37,5 @@ get_network(
 string network with integrated numeric values (fold-changes, lfq-values, ...)
 }
 \description{
-get_network()
+Creates a network with known protein-protein interactions and maps expression values to nodes.
 }

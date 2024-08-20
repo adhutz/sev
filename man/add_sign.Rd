@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{add_sign}
 \alias{add_sign}
-\title{add_sign()
-Add Significance Information to a SummarizedExperiment Object}
+\title{Add Significance Information to a SummarizedExperiment Object}
 \usage{
 add_sign(se, p_thr = 0.05, diff_thr = 1)
 }

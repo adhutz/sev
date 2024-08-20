@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{prep_ksea}
 \alias{prep_ksea}
-\title{prep_ksea()
-Prepare KSEA input data from SummarizedExperiment object}
+\title{Prepare KSEA input data from SummarizedExperiment object}
 \usage{
 prep_ksea(se, contrast)
 }

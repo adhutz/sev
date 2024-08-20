@@ -197,39 +197,65 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 #'
 #' @param se summarized experiment
 #' @param contrast_ contrast
-#' @param id_col id column
-#'
+#' @param id_col id column that contains targets
+#' @param target_names targets to label
+#' @param label_sign if TRUE, significant genes are labeled
+#' @param label_targets if TRUE, target genes are labeled
+#' @param max.overlaps maximal overlaps for labels. Set to Inf to label everything
+#' 
 #' @return volcano plot
-#' @importFrom ggplot2 ggplot geom_point scale_color_manual theme_bw labs lims
-#' @importFrom ggrepel geom_text_repel
-#'
+#' @importFrom ggrepel geom_text_repel geom_label_repel
+#' @import ggplot2
 
-se_volcano<-function(se, contrast_, id_col = "gene_names"){
-  LFC <- rowData(se)[,paste0(contrast_, "_diff")]
-  p <- rowData(se)[,paste0(contrast_, "_p.val")]%>%-log2(.)
-  p.adj <- rowData(se)[,paste0(contrast_, "_p.adj")]%>%-log2(.)
-  sig <- rowData(se)[,paste0(contrast_, "_significant")]
+se_volcano <- function(se, contrast, id_col = "gene_names", target_names = c(""), label_sign = TRUE, label_targets = TRUE, max.overlaps = Inf){
+  pval <- paste0(contrast, "_p.val")
+  padj <- paste0(contrast, "_p.adj")
+  diff <- paste0(contrast, "_diff")
+  sign <- paste0(contrast, "_significant")
   
-  change<-ifelse(sig & (LFC>0), "Increase",
-                 ifelse(sig & (LFC < 0), "Decrease","None"))
+  plot_data <- rowData(se) %>% as.data.frame() %>% 
+    select(all_of(c(id_col, "name")), starts_with(contrast)) %>% 
+    mutate(target_gene = factor(ifelse(!!sym(id_col) %in% target_names, "Target", "Non-Target"), levels = c( "Non-Target", "Target"))) %>%
+    mutate(sign = !!sym(sign)) %>%
+    mutate(target_sign = factor(ifelse(!!sym(id_col) %in% target_names, "Target", 
+                                       ifelse(!!sym(sign) == TRUE, "Significant", "None")), levels = c("None", "Significant", "Target"))) %>%
+    mutate(alpha = ifelse(target_sign == "None", "None", "goi")) %>%
+    plyr::arrange(target_gene, !!sym(sign))
   
-  df <- data.frame(LFC,p,sig,change, "SYMBOL" = rowData(se)[[id_col]])
+  p1 <- ggplot(plot_data, aes_string(x = diff, y = paste0("-log10(", pval, ")"))) +
+    
+    # Plot points based on another cutoff
+    geom_point(aes(fill = target_sign, alpha = alpha, shape = sign), size = 2, stroke = 0.1, show.legend = T) +
+    scale_fill_manual(values = c("Significant" = "firebrick", "Target" = "darkorange", "None" = "grey90"), drop = FALSE) +
+    scale_shape_manual(values = c("FALSE" = 21, "TRUE" = 23), drop = FALSE) +
+    scale_alpha_manual(values = c("None" = 0.2, "goi" = 0.7), drop = FALSE) +
+    guides(alpha = FALSE,
+           fill = guide_legend( 
+             override.aes=list(shape = 21, size = 3)),
+           shape = guide_legend(override.aes = list(size = 3))) +
+    
+    labs(title = contrast,
+         fill = "Targets",
+         shape = "Significant",
+         x = "Log2(Fold Change)",
+         y = "-Log10(P-value)") +
+    
+    theme_bw()
   
-  #Calculate the axis limits
-  ex_x<-max(LFC)%>%ceiling(.)
-  ex_y<-max(p)%>%ceiling(.)
-  plot<-ggplot(data=df, aes(labels=SYMBOL,x=LFC, y=p))+
-    geom_point(data=df, pos="identity", aes(color=change), size=2, alpha=0.6)+
-    scale_color_manual(values=c("Increase"="#ED553B","None"="grey","Decrease"="#20639B"))+
-    geom_text_repel(data=subset(df, sig==TRUE), aes(x=LFC, y=p, label=SYMBOL), max.overlaps = Inf)+
-    #geom_vline(xintercept = FC_cut, linetype="dashed")+
-    #geom_vline(xintercept = -FC_cut, linetype="dashed")+
-    theme_bw()+
-    labs(x="Log2 fold-change", y="-log2 (p-value)", color="Change", title=paste("Volcano plot -", contrast_))+
-    lims(x=c(-ex_x, ex_x), y=c(0, ex_y))
+  if(label_sign){
+    if(label_targets){
+      p1 <- p1 + geom_text_repel(data = subset(plot_data, target_gene != "Target" & sign), aes(label = name), size = 3, color = "firebrick", min.segment.length = 0, max.overlaps = max.overlaps)
+    } else{
+      p1 <- p1 + geom_text_repel(data = subset(plot_data, sign), aes(label = name), size = 3, color = "firebrick", min.segment.length = 0, max.overlaps = max.overlaps)
+    }
+  }
   
-  return(plot)
+  if(label_targets){
+    p1 <- p1 + geom_label_repel(data = subset(plot_data, target_gene == "Target"), aes(label = name), size = 3, color = "darkorange", min.segment.length = 0, max.overlaps = max.overlaps)
+    
+  }
   
+  return(p1)
 }
 
 #' Handling of columns with multiple entries
@@ -239,15 +265,17 @@ se_volcano<-function(se, contrast_, id_col = "gene_names"){
 #' @param colname column that needs to be split (e.g., gene_names, protein_ids)
 #' @param keep_all if TRUE, all entries are retained in additional rows. If FALSE,
 #' only the first name/id is kept.
+#' @param sep separator
 #' @importFrom splitstackshape cSplit
 #' @return table with split entries
-split_genes <- function(table, colname="gene_names", keep_all=FALSE){
+split_genes <- function (table, colname = "gene_names", keep_all = FALSE, sep = ";") 
+{
   require(splitstackshape)
-  if (keep_all){
-    return(cSplit(table, colname, direction = "long", sep=";"))
+  if (keep_all) {
+    return(cSplit(table, colname, direction = "long", sep = sep))
   }
-  else{
-    table[[colname]]<-gsub(";.*", "", table[[colname]])
+  else {
+    table[[colname]] <- gsub(";.*", "", table[[colname]])
     return(table)
   }
 }
@@ -938,6 +966,7 @@ fragpipe_read_in <- function(file, gene_column = "gene", protein_column = "prote
 }
 
 
+
 #' Create a 2D scatterPlot
 #' 
 #' Plots two columns against each other and marks entries that differ more than standard_dev SD. This calculation is performed as a moving window.
@@ -1377,8 +1406,8 @@ my_theme <- function() {
 #' @param p_thr A numeric value for the p-value threshold (default: 0.05).
 #' @param diff_thr A numeric value for the difference threshold (default: 1).
 #' @return A SummarizedExperiment object with added significance information.
-#' @importFrom dplyr select filter mutate
 #' @importFrom tidyr pivot_longer pivot_wider
+#' @import dplyr
 #' @examples
 #' # Assuming 'se' is a SummarizedExperiment object
 #' se_with_sign <- add_sign(se)
@@ -1419,9 +1448,9 @@ add_sign <- function(se, p_thr = 0.05, diff_thr = 1){
 #'
 #' @param se An se object.
 #' @return A data frame.
-#' @importFrom dplyr select mutate
 #' @importFrom tidyr pivot_longer pivot_wider
 #' @importFrom tidyselect ends_with
+#' @import dplyr
 #' @examples
 #' # Example usage:
 #' # result <- long_test(se)
@@ -1461,7 +1490,7 @@ long_test <- function(se){
 #'
 #' @importFrom DEP2 plot_heatmap
 #' @importFrom gdata cbindX
-#' @importFrom dplyr select
+#' @import dplyr
 #' @export
 #' @examples
 #' # Assuming se_diff is a SummarizedExperiment object with appropriate data
@@ -1574,8 +1603,8 @@ phospho_ora <- function(se, contr = "all", OrgDb = "org.Hs.eg.db", pvalueCutoff 
 #' @param se A SummarizedExperiment object containing phosphoproteomics data.
 #' @param file The filename where the resulting data should be saved (default: current directory).
 #' @return relevant data
-#' @importFrom dplyr select ends_with
 #' @importFrom DEP2 get_df_wide
+#' @import dplyr
 #' @export
 write_phos <- function(se, file = ""){
   exp <- se %>% 
@@ -1609,8 +1638,8 @@ write_phos <- function(se, file = ""){
 #' @param se A SummarizedExperiment object containing proteomics data.
 #' @param file The filename where the resulting data should be saved (default: current directory).
 #' @return relevant data
-#' @importFrom dplyr select ends_with
 #' @importFrom DEP2 get_df_wide
+#' @import dplyr
 #' @export
 write_prot <- function(se, file = ""){
   exp <- se %>% 
@@ -1643,9 +1672,9 @@ write_prot <- function(se, file = ""){
 #' @param se A SummarizedExperiment object containing the input data.
 #' @param contrast A character string specifying the contrast of interest.
 #' @return A data frame with columns: Protein, Gene, Peptide, Residue.Both, p, and FC.
-#' @importFrom dplyr select filter mutate contains rename
 #' @importFrom rlang !! 
 #' @importFrom ggplot2 sym
+#' @import dplyr
 #' @export
 #' @examples
 #' # Assuming 'se' is a SummarizedExperiment object and 'contrast' is a character string
@@ -1803,8 +1832,8 @@ plot_signalome_map <- function(signalome_res, kinase_signalome_color){
 #' @param signalome_res A list containing the results of the signalome analysis
 #' @return A list of ggplot objects, one for each module in the signalome result
 #' @import ggplot2
-#' @importFrom dplyr mutate filter group_by summarize
 #' @importFrom tidyr pivot_longer
+#' @import dplyr
 #' @export
 
 module_barplot <- function(mat, signalome_res){
@@ -1941,8 +1970,8 @@ aov_scale_phosR <- function(ppe, p_cut = 0.05, fc_cut = 0.5, assay = "normalised
 #' @return A modified PhosR object with the differential phosphorylation test results added to the rowData.
 #' @importFrom limma lmFit makeContrasts contrasts.fit eBayes topTable
 #' @importFrom S4Vectors expand.grid
-#' @importFrom dplyr rename_with mutate select filter
 #' @importFrom BiocGenerics cbind
+#' @import dplyr
 #' @export
 test_diff_phosR <- function(ppe, contrast = c("treatment_vs_control"), test_all = FALSE, assay = "scaled"){
   
@@ -2002,10 +2031,10 @@ test_diff_phosR <- function(ppe, contrast = c("treatment_vs_control"), test_all 
 #' @param experimental_design An optional data frame to provide custom experimental design information.
 #' @return A PhosphoExperiment object containing the processed data.
 #' @importFrom janitor make_clean_names
-#' @importFrom dplyr mutate filter starts_with contains select 
 #' @importFrom DEP2 make_unique
 #' @importFrom BiocGenerics colnames rownames
 #' @importFrom PhosR PhosphoExperiment
+#' @import dplyr
 #' @export
 maxq_to_ppe <- function(file, sep="_rep_",
                         filt = c("reverse", "potential_contaminant"), experimental_design = NA){
@@ -2100,9 +2129,9 @@ maxq_to_ppe <- function(file, sep="_rep_",
 #'
 #' @importFrom vroom vroom
 #' @importFrom janitor clean_names
-#' @importFrom dplyr rename_all, select, mutate, filter
 #' @importFrom tidyr pivot_wider
 #' @importFrom DEP2 make_se
+#' @import dplyr
 
 spectronaut_to_se <- function(candidates = NULL, report = NULL, contrasts = NULL, conditionSetup = NULL, quant_col = "log2quantity"){
     #####read in data (spectronaut output from Fatih Demir)
@@ -2184,114 +2213,318 @@ spectronaut_to_se <- function(candidates = NULL, report = NULL, contrasts = NULL
 #' @param y_column Character string specifying the column name for the y-axis values.
 #' @param label_names Character string specifying the column name for the labels.
 #' @param gene_list A character vector of gene names to be highlighted. Default is an empty vector.
-#' @param top_n_diff_prots Integer specifying the number of top differing proteins to consider. Default is  20.
-#'
+#' @param top_genes Integer specifying the number of top differing proteins to consider. Default is  20.
+#' @param max.overlaps Integer specifying the maximum number of overlapping labels. Default is Inf.
+#' 
 #' @return A list containing the plot and subsets of the data used for each part of the plot.
 #' @export
 #'
-#' @importFrom dplyr select, filter, mutate
-#' @importFrom ggplot2 ggplot, geom_point, geom_smooth, geom_abline, theme_bw, lims, scale_shape_manual, scale_fill_manual
 #' @importFrom patchwork plot_layout
 #' @importFrom ggpubr stat_cor
 #' @importFrom ggrepel geom_label_repel
+#' @import ggplot2
+#' @import dplyr
 
-corr_plot <- function(df, x_column, y_column, label_names, gene_list=c(""), top_n_diff_prots = 20) {
+plot_test <- function(df, x_column, y_column, label_names, gene_list = c(""), top_genes = 20, max.overlaps = Inf) {
+  x_char <- df %>% dplyr::select({ {x_column} }) %>% colnames()
+  y_char <- df %>% dplyr::select({ {y_column} }) %>% colnames()
   
-  x_char <- df %>% dplyr::select({{x_column}}) %>% colnames()
-  y_char <- df %>% dplyr::select({{y_column}}) %>% colnames()
-  
-  
-  
-  df <- df %>% dplyr::select({{x_column}}, {{y_column}}, {{label_names}}) %>%
-    filter(!is.na({{x_column}} | !is.na({{y_column}}))) %>% 
-    mutate(abs_diff = ifelse((is.na({{x_column}}) | is.na({{y_column}})), 0,abs({{x_column}} - {{y_column}})),
-           top_n_diff_prots = ifelse(rank(dplyr::desc(abs_diff), ties.method = "first") <= top_n_diff_prots, TRUE, FALSE),
+  df <- df %>% dplyr::select({ {x_column} }, { {y_column} }, { {label_names} }) %>%
+    filter(!is.na({ {x_column} }) | !is.na({ {y_column} })) %>%
+    mutate(abs_diff = ifelse((is.na({{x_column}}) | is.na({{y_column}})), NA, abs({{x_column}} - {{y_column}})),
            in_gene_list = {{label_names}} %in% gene_list)
   
-  sub_1 <- df %>% filter(!is.na({{x_column}}) & !is.na({{y_column}}))
-  sub_2 <- df %>% filter(top_n_diff_prots == TRUE & !{{label_names}} %in% gene_list)
-  sub_3 <- df %>% filter(in_gene_list)
   
-  x_min = min(dplyr::select(sub_1, c({{x_column}}, {{y_column}})))
-  x_max = max(dplyr::select(sub_1, c({{x_column}}, {{y_column}})))
+  sub_1 <- df %>% filter(!is.na({ {x_column} }) & !is.na({ {y_column} })) %>% 
+    mutate(top_genes_common = rank(-abs_diff, ties.method ="first") < top_genes,
+           target = factor(ifelse(in_gene_list, "in_gene_list", ifelse(top_genes_common, "top_gene", "gene")), levels = c("in_gene_list", "top_gene", "gene")))
   
-  # Plot common genes
-  p1 <- ggplot(sub_1, 
-               aes(x = {{x_column}}, 
-                   y = {{y_column}}, 
-                   label = {{label_names}})) + 
-    
-    geom_point(aes(fill = factor(in_gene_list, levels = c(TRUE, FALSE)), shape = top_n_diff_prots), size = 2, alpha = 0.4) +
-    
-    scale_shape_manual(values = c(21,23), drop = FALSE) +
-    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"), drop = FALSE, guide = "none") +
-    
-    geom_label_repel(data = sub_2,
-                     color = "black",
-                     show.legend = FALSE,
-                     max.overlaps = Inf) +
-    geom_label_repel(data = sub_3,
-                     color = "firebrick",
-                     show.legend = FALSE,
-                     max.overlaps = Inf) +
-    
-    geom_smooth(data = sub_1, method = "lm", color = "navy",se = FALSE, size = 0.2, linetype = "dashed") +
+  sub_2 <- sub_1 %>% filter(top_genes_common & !in_gene_list)
+  sub_3 <- sub_1 %>% filter(in_gene_list)
+  
+  x_min = min(dplyr::select(sub_1, c({ {x_column} }, { {y_column} })))
+  x_max = max(dplyr::select(sub_1, c({ {x_column} }, { {y_column} })))
+  
+  p1 <- ggplot(sub_1, aes(x = { {x_column} }, y = { {y_column} }, label = { {label_names} })) +
+    geom_point(aes(fill = target, shape = factor(top_genes_common, levels = c("TRUE", "FALSE"))), size = 2, alpha = 0.4, show.legend = TRUE) +
+    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "darkorange", "in_gene_list" = "firebrick"), drop = FALSE) +
+    scale_shape_manual(values = c("FALSE"= 21, "TRUE" = 23), drop = FALSE) +
+    geom_label_repel(data = filter(sub_3, in_gene_list), color = "firebrick", show.legend = FALSE, max.overlaps = max.overlaps, min.segment.length = 0,
+                     fill = alpha(c("white"),0.7)) +
+    geom_label_repel(data = filter(sub_2, top_genes_common), color = "darkorange", show.legend = FALSE, max.overlaps = max.overlaps, min.segment.length = 0,
+                     fill = alpha(c("white"),0.7)) +
     geom_abline(intercept = 0, linetype = "solid", color = "black") +
-    ggpubr::stat_cor(aes(label = ..r.label..))+
-    labs(title = "Common proteins")+
+    ggpubr::stat_cor(data = sub_1, aes(label = ..r.label..)) +
+    labs(title = "Common proteins", fill = "Targets", shape = "Top Genes") +
+    guides(fill = guide_legend( 
+      override.aes=list(shape = 21))) +
     lims(x = c(x_min, x_max), y = c(x_min, x_max)) +
-    theme_bw()
-  
+    theme_bw() 
   
   sub_4 <- df %>% filter(!is.na({{x_column}}) & is.na({{y_column}})) %>% 
-    mutate({{y_column}} := "NA")
+    mutate(`:=`({{y_column}}, "NA")) %>% 
+    mutate(top_genes_x = rank(-{{x_column}}, ties.method ="first") < top_genes,
+           jittered = runif(nrow(.), min = -0.4, max = 0.4),
+           target = factor(ifelse(in_gene_list, "in_gene_list", ifelse(top_genes_x, "top_gene", "gene")), levels = c("in_gene_list", "top_gene", "gene")))
+  
   sub_5 <- sub_4 %>% filter(!in_gene_list)
   sub_6 <- sub_4 %>% filter(in_gene_list)
   
-  p2 <- ggplot(sub_4, aes(x = {{y_column}}, y = {{x_column}}, label = {{label_names}})) +
-    geom_point(aes(fill = factor(in_gene_list, levels = c(TRUE, FALSE))), size = 2, position = position_jitter(w = 0.3, h = 0), alpha = 0.4, shape = 21) +
+  p2 <- ggplot(sub_4, aes(x = jittered, y = {{x_column}}, label = {{label_names}})) +
+    geom_point(aes(fill = target, shape = factor(top_genes_x, levels = c("TRUE", "FALSE"))), size = 2, alpha = 0.4, show.legend = TRUE) +
+    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "darkorange", "in_gene_list" = "firebrick"), drop = FALSE) +
+    scale_shape_manual(values = c(`FALSE`= 21, `TRUE` = 23), drop = FALSE) +
     
-    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"), guide = "none", drop = FALSE) +
-    geom_label_repel(data = filter(sub_6, in_gene_list),
-                     color = "firebrick",
-                     show.legend = FALSE,
-                     max.overlaps = Inf) +
-    labs(title = x_char, fill = "Target gene")+
-    theme_bw()
+    geom_label_repel(data = filter(sub_6, in_gene_list), color = "firebrick", show.legend = FALSE, max.overlaps = Inf,
+                     fill = alpha(c("white"),0.7)) +
+    geom_label_repel(data = filter(sub_5, top_genes_x), color = "darkorange", show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0,
+                     fill = alpha(c("white"),0.7)) +
+    labs(title = x_char, fill = "Targets", shape = "Top Genes") +
+    guides(fill = guide_legend( 
+      override.aes=list(shape = 21))) +
+    theme_bw()+
+    theme(
+      axis.title.x = element_blank()
+    )
   
-  sub_7 <- df %>% filter(is.na({{x_column}}) & !is.na({{y_column}})) %>% 
-    mutate({{x_column}} := "NA")
+  sub_7 <- df %>% 
+    filter(is.na({{x_column}}) & !is.na({{y_column}})) %>% 
+    mutate(`:=`({{x_column}}, "NA")) %>% 
+    mutate(top_genes_y = rank(-{{y_column}}, ties.method ="first") < top_genes,
+           jittered = runif(nrow(.), min = -0.4, max = 0.4),
+           target = factor(ifelse(in_gene_list, "in_gene_list", ifelse(top_genes_y, "top_gene", "gene")), levels = c("in_gene_list", "top_gene", "gene")))
+  
   sub_8 <- sub_7 %>% filter(!in_gene_list)
   sub_9 <- sub_7 %>% filter(in_gene_list)
   
-  p3 <- ggplot(sub_7, aes(x = {{x_column}}, y = {{y_column}}, label = {{label_names}})) +
-    geom_point(aes(fill = factor(in_gene_list, levels = c(TRUE, FALSE))), size = 2, position = position_jitter(w = 0.1, h = 0), alpha = 0.4, shape = 21) +
+  p3 <- ggplot(sub_7, aes(x = jittered, y = {{y_column}}, label = {{label_names}})) +
+    geom_point(aes(fill = target, shape = factor(top_genes_y, levels = c("TRUE", "FALSE"))), size = 2, alpha = 0.4, show.legend = TRUE) +
+    scale_shape_manual(values = c(`FALSE`= 21, `TRUE` = 23), drop = FALSE) +
+    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "darkorange", "in_gene_list" = "firebrick"), drop = FALSE) +
+    geom_label_repel(data = filter(sub_9, in_gene_list), color = "firebrick", show.legend = FALSE, max.overlaps = Inf,
+                     fill = alpha(c("white"),0.7)) +
+    geom_label_repel(data = filter(sub_8, top_genes_y), color = "darkorange", show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0,
+                     fill = alpha(c("white"),0.7)) +
     
-    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"), drop = FALSE) +
-    geom_label_repel(data = filter(sub_9, in_gene_list),
-                     color = "firebrick",
-                     show.legend = FALSE,
-                     max.overlaps = Inf) +
-    labs(title = y_char, fill = "Target gene")+
-    theme_bw()
-  
+    labs(title = y_char, fill = "Targets", shape = "Top Genes") +
+    guides(fill = guide_legend( 
+      override.aes=list(shape = 21))) +
+    theme_bw()+
+    theme(
+      axis.title.x = element_blank()
+    )
   
   panel_list <- list()
-  panel_list[["common"]] <- p1 + 
-    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"))
-  panel_list[[x_char]] <- p2+ 
-    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"))
-  panel_list[[y_char]] <- p3+ 
-    scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "firebrick"))
-  
+  panel_list[["common"]] <- p1
+  panel_list[[x_char]] <- p2
+  panel_list[[y_char]] <- p3
   
   l <- list()
-  l[["plot"]] <- (p1 + p2 + p3)+ 
-    patchwork::plot_layout(guides = 'collect', widths = c(0.6,0.2,0.2))
+  l[["plot"]] <- (p1 + p2 + p3) + patchwork::plot_layout(guides = "collect", widths = c(0.5, 0.3, 0.3))
   l[["common"]] <- sub_1
   l[[x_char]] <- sub_4
   l[[y_char]] <- sub_7
+  l[["top_genes"]] <- sub_2
   l[["panels"]] <- panel_list
   
   return(l)
+}
+
+#' advanced_test
+#'
+#' @param se SummarizedExperiment with groups as condition column of colData
+#' @param design_formula formula object specifying the design of the linear model. Best left unchanged
+#' @param advanced_contrast character vector specifying the contrasts to be tested. e.g. c("condA_vs_condB" = "condA - condB", "condB_vs_sctrl" = "condB - (condA + condC)/2")
+#' @param fdr.type character string specifying the method to use for multiple testing correction. Default is "Strimmer's qvalue(t)".
+#'
+#' @return SummarizedExperiment with the results of the test added to the rowData
+#' @export
+#'
+#' @importFrom limma lmFit makeContrasts contrasts.fit eBayes topTable
+#' @importFrom tidyr gather unite pivot_wider
+#' @importFrom tibble rownames_to_column
+#' @importFrom qvalue qvalue
+#' @importFrom purrr map_df
+#' @importFrom stats p.adjust
+#' @importFrom fdrtool fdrtool
+#' @importFrom SummarizedExperiment rowData colData assay 
+#' @importFrom stats model.matrix 
+#' @import dplyr
+
+advanced_test <- function (se, design_formula = formula(~0 + condition), advanced_contrast = NULL, 
+                       fdr.type = c("Strimmer's qvalue(t)", "Strimmer's qvalue(p)", 
+                                    "BH", "Storey's qvalue")) 
+{
+  
+  col_data <- colData(se)
+  raw <- assay(se)
+  
+  variables <- terms.formula(design_formula) %>% attr(., "variables") %>% 
+    as.character() %>% .[-1]
+  
+  for (var in variables) {
+    temp <- factor(col_data[[var]])
+    assign(var, temp)
+  }
+  
+  design <- model.matrix(design_formula, data = environment())
+  colnames(design) <- gsub("condition", "", colnames(design))
+  conditions <- as.character(unique(condition))
+  
+  cntrst = advanced_contrast
+  
+  message("Tested contrasts: ", paste(gsub(" - ", "_vs_", cntrst), 
+                                      collapse = ", "))
+  
+  fit <- lmFit(raw, design = design)
+  
+  made_contrasts <- makeContrasts(contrasts = cntrst, levels = design)
+  
+  contrast_fit <- contrasts.fit(fit, made_contrasts)
+  
+  if (any(is.na(raw))) {
+    for (i in cntrst) {
+      
+      covariates <- strsplit(i, " - |\\(|\\)| \\+ ") %>% unlist
+      covariates <- covariates[!covariates == "" & !grepl("/", covariates)]
+      
+      single_contrast <- makeContrasts(contrasts = i, levels = covariates)
+      single_contrast_fit <- contrasts.fit(fit[, covariates], single_contrast)
+      
+      contrast_fit$coefficients[, i] <- single_contrast_fit$coefficients[, 
+                                                                         1]
+      contrast_fit$stdev.unscaled[, i] <- single_contrast_fit$stdev.unscaled[, 
+                                                                             1]
+      
+    }
+  }
+  eB_fit <- eBayes(contrast_fit, trend = FALSE)
+  retrieve_fun <- function(comp, fit = eB_fit, fdr.type) {
+    res <- topTable(fit, sort.by = "t", coef = comp, number = Inf, 
+                    confint = TRUE)
+    res <- res[!is.na(res$t), ]
+    if (fdr.type == "Strimmer's qvalue(t)") {
+      fdr_res <- fdrtool(res$t, plot = FALSE, verbose = FALSE)
+      res$qval <- fdr_res$qval
+    }
+    if (fdr.type == "Strimmer's qvalue(p)") {
+      fdr_res <- fdrtool(res$P.Value, statistic = "pvalue", 
+                         plot = FALSE, verbose = FALSE)
+      res$qval <- fdr_res$qval
+    }
+    if (fdr.type == "BH") {
+      padj <- p.adjust(res$P.Value, method = "BH")
+      res$qval = padj
+    }
+    if (fdr.type == "Storey's qvalue") {
+      qval_res = qvalue::qvalue(res$P.Value)
+      res$qval = qval_res$qvalues
+    }
+    res$comparison <- rep(comp, dim(res)[1])
+    res <- tibble::rownames_to_column(res)
+    return(res)
+  }
+  message(fdr.type)
+  limma_res <- purrr::map_df(cntrst, retrieve_fun, fdr.type = fdr.type)
+  
+  limma_res$comparison = names(cntrst)[match(limma_res$comparison, 
+                                             cntrst)]
+  
+  table <- limma_res %>% dplyr::select(rowname, logFC, CI.L, 
+                                       CI.R, t, P.Value, qval, comparison) %>% tidyr::gather(variable, 
+                                                                                             value, -c(rowname, comparison)) %>% mutate(variable = recode(variable, 
+                                                                                                                                                          logFC = "diff", t = "t.stastic", P.Value = "p.val", qval = "p.adj")) %>% 
+    tidyr::unite(temp, comparison, variable) %>% tidyr::pivot_wider(names_from = temp, values_from = value)
+  
+  rowData(se) <- merge(rowData(se), table, 
+                       by.x = "name", by.y = "rowname", all.x = TRUE, sort = FALSE)
+  return(se)
+}
+
+
+#' merge_se
+#'
+#' @param se A list of SummarizedExperiment objects
+#' @param keep_all Logical indicating whether to keep all rows or only those present in all objects. Default is FALSE.
+#'
+#' @return A SummarizedExperiment object with the merged data.
+#' @export
+#'
+#' @importFrom DEP2 make_se
+#' @importFrom SummarizedExperiment SummarizedExperiment assay rowData colData
+#' @importFrom tibble column_to_rownames
+#' @import dplyr
+merge_se <- function(se = list(), keep_all = FALSE){
+  
+  old_names <- names(se)
+  new_names <- paste0("nof_stripped_sequences_identified_experiment_wide_", names(se))
+  mw_names <- paste0("moleculaweight_", names(se))
+  
+  se <- lapply(seq_along(se), function(x){
+    se_rd <- rowData(se[[x]]) %>% as.data.frame() 
+    
+    colnames(se_rd) <- gsub("nof_stripped_sequences_identified_experiment_wide", new_names[[x]], colnames(se_rd))
+    colnames(se_rd) <- gsub("moleculaweight", mw_names[[x]], colnames(se_rd))
+    
+    se_cd <- colData(se[[x]]) %>% as.data.frame() %>% mutate(set = names(se)[[x]])
+    
+    se_as <- assay(se[[x]]) %>% as.data.frame()
+    
+    se_sa <- gsub("(.*)_(quantity|log2quantity)", "\\1", colnames(dplyr::select(se_rd, ends_with("_quantity"), ends_with("_log2quantity"))))
+    
+    se_rd <- se_rd %>% dplyr::select(name, matches(paste0(se_sa, collapse = "|")), contains("_vs_"),
+                                     contains("nof_stripped_sequences_identified_experiment_wide"),
+                                     contains("moleculaweight"))
+    
+    list(cd = se_cd, rd = se_rd, as = se_as, sa = se_sa)
+  })
+  
+  names(se) <- old_names
+  
+  #Check for duplicated IDs and rename if necessary
+  temp <- c()
+  for(se_ in se){
+    temp <- c(se_$cd$ID, temp)
+  }
+  
+  if(any(duplicated(temp))){
+    warning("Duplicated IDs! Renamed to avoid conflicts")
+    
+    for(i in seq_along(se)){
+      se[[i]]$cd$ID <- paste0(names(se)[[i]], "_",se[[i]]$cd$ID)
+      se[[i]]$cd$condition <- paste0(names(se)[[i]], "_",se[[i]]$cd$condition)
+      colnames(se[[i]]$as) <- paste0(names(se)[[i]], "_", colnames(se[[i]]$as))
+      
+      
+      colnames(se[[i]]$rd) <- gsub("(.*)_vs_(.*)", paste0(names(se)[[i]], "_", "\\1_vs_", names(se)[[i]], "_","\\2"), colnames(se[[i]]$rd))
+      
+    }
+  }
+  
+  # Merge
+  for(i in seq_along(se)){
+    if(i == 1){
+      rd <- se[[i]]$rd %>% dplyr::select(-name)
+      cd <- se[[i]]$cd
+      as <- se[[i]]$as
+    }else{
+      rd <- merge(rd, dplyr::select(se[[i]]$rd, -name), by = "row.names", all = keep_all, sort = FALSE) %>% tibble::column_to_rownames("Row.names") %>%
+        mutate(across(everything(), ~ ifelse(.=="NaN", NA, .)))
+      
+      cd <- rbind(cd, se[[i]]$cd) %>%
+        mutate(across(everything(), ~ ifelse(.=="NaN", NA, .)))
+      
+      as <- merge(as, se[[i]]$as, by = "row.names", all = TRUE, sort = FALSE, ) %>% tibble::column_to_rownames("Row.names") %>%
+        mutate(across(everything(), ~ ifelse(.=="NaN", NA, .)))
+      
+      colnames(as) <- cd$ID  
+      rownames(cd) <- cd$ID
+    }
+  }
+  
+  
+  se <- SummarizedExperiment::SummarizedExperiment(assay = as.matrix(as), rowData = rd, colData = cd)
+  rowData(se)$name <- rownames(se)
+  
+  return(se)
 }

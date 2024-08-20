@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{fix_maxq_pig}
 \alias{fix_maxq_pig}
-\title{Fix_maxq_pig()}
+\title{Handling of pig derived data}
 \usage{
 fix_maxq_pig(proteingroups, peptides, fasta, mult_org = FALSE, obj = FALSE)
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{filter_perseus}
 \alias{filter_perseus}
-\title{filter_perseus()}
+\title{Filter on occurence}
 \usage{
 filter_perseus(se, perc_na = 0.33, filter_mode = "each_group")
 }

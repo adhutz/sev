@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{gct_to_long}
 \alias{gct_to_long}
-\title{gct_to_long()
-Convert a GCT object to a long format data frame}
+\title{Convert a GCT object to a long format data frame}
 \usage{
 gct_to_long(gct, file = "")
 }

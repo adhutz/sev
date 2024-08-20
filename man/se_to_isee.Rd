@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{se_to_isee}
 \alias{se_to_isee}
-\title{se_to_isee()}
+\title{Make se compatible to iSEE}
 \usage{
 se_to_isee(se, PValuePatterns = "p.val", LogFCPatterns = "_diff")
 }

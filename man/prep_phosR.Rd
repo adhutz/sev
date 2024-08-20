@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{prep_phosR}
 \alias{prep_phosR}
-\title{prep_phosR()
-Prepares Phosphorylation Data for Analysis}
+\title{Prepares Phosphorylation Data for Analysis}
 \usage{
 prep_phosR(se, species = "human", numMotif = 5, numSub = 1, top = 30)
 }

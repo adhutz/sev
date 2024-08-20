@@ -2,8 +2,7 @@
 % Please edit documentation in R/main.R
 \name{to_long}
 \alias{to_long}
-\title{to_long()
-Convert a SummarizedExperiment object to a long format data frame}
+\title{Convert a SummarizedExperiment object to a long format data frame}
 \usage{
 to_long(se, assays_ = c(""))
 }

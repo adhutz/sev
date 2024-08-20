@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{se_read_in}
 \alias{se_read_in}
-\title{se_read_in()}
+\title{Create se from MaxQuant}
 \usage{
 se_read_in(
   file,

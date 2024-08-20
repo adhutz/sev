@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{make_mini}
 \alias{make_mini}
-\title{Make_mini()}
+\title{Minimize results}
 \usage{
 make_mini(se)
 }

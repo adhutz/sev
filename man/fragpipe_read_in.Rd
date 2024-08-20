@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{fragpipe_read_in}
 \alias{fragpipe_read_in}
-\title{fragpipe_read_in()}
+\title{fragpipe to se}
 \usage{
 fragpipe_read_in(
   file,
@@ -29,7 +29,7 @@ replicate number.}
 summarized experiment
 }
 \description{
-Reads in MaxQuant or other output and creates a summarized experiment.
+Reads in fragpipe or other output and creates a summarized experiment.
 }
 \examples{
 Mandatory columns: sample (sample name), condition (treatment), replicate

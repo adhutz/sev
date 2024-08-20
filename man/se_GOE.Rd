@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{se_GOE}
 \alias{se_GOE}
-\title{se_GOE()}
+\title{GO term enrichment}
 \usage{
 se_GOE(
   se,
@@ -15,7 +15,7 @@ se_GOE(
 )
 }
 \arguments{
-\item{se}{with t-test results (e.g. via DEP test_diff())}
+\item{se}{with t-test results (e.g. via DEP2 test_diff())}
 
 \item{col_names}{name of columns on that enrichment is performed. If left empty, all columns ending with "_diff" are selected.}
 

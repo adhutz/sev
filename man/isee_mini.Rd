@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{isee_mini}
 \alias{isee_mini}
-\title{isee_mini()}
+\title{Create iSEE app with all custom panels}
 \usage{
 isee_mini(se)
 }
@@ -13,5 +13,5 @@ isee_mini(se)
 an iSEE app
 }
 \description{
-Explores your own summarized experiment
+Includes GeneAnnoTable, GOTable and RowDataTable.
 }

@@ -2226,7 +2226,7 @@ spectronaut_to_se <- function(candidates = NULL, report = NULL, contrasts = NULL
 #' @import ggplot2
 #' @import dplyr
 
-plot_test <- function(df, x_column, y_column, label_names, gene_list = c(""), top_genes = 20, max.overlaps = Inf) {
+corr_plot <- function(df, x_column, y_column, label_names, gene_list = c(""), top_genes = 20, max.overlaps = Inf) {
   x_char <- df %>% dplyr::select({ {x_column} }) %>% colnames()
   y_char <- df %>% dplyr::select({ {y_column} }) %>% colnames()
   

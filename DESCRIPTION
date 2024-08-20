@@ -36,7 +36,7 @@ VignetteBuilder: knitr
 Remotes: 
     bioc::iSEE, 
     bioc::iSEEu,
-    bioc::DEP2,
+    mildpiggy/DEP2,
     bioc::clusterProfiler,
     bioc::HybridMTest,
     bioc::PhosR,

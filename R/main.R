@@ -2438,7 +2438,7 @@ advanced_test <- function (se, design_formula = formula(~0 + condition), advance
     tidyr::unite(temp, comparison, variable) %>% tidyr::pivot_wider(names_from = temp, values_from = value)
   
   rowData(se) <- left_join(as.data.frame(rowData(se)), table, 
-                       by = c("name", "rowname"))
+                       by = c("name" = "rowname"))
   return(se)
 }
 

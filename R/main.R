@@ -220,7 +220,7 @@ se_volcano <- function(se, contrast, id_col = "gene_names", target_names = c("")
     mutate(target_sign = factor(ifelse(!!sym(id_col) %in% target_names, "Target", 
                                        ifelse(!!sym(sign) == TRUE, "Significant", "None")), levels = c("None", "Significant", "Target"))) %>%
     mutate(alpha = ifelse(target_sign == "None", "None", "goi")) %>%
-    plyr::arrange(target_gene, !!sym(sign))
+    plyr::arrange(target_gene, sign)
   
   p1 <- ggplot(plot_data, aes_string(x = diff, y = paste0("-log10(", pval, ")"))) +
     

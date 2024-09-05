@@ -204,6 +204,8 @@ impute_perseus = function(se, width = 0.3, downshift = 1.8, per_col=T) {
 #' @param max.overlaps maximal overlaps for labels. Set to Inf to label everything
 #' 
 #' @return volcano plot
+#' @export
+#' 
 #' @importFrom ggrepel geom_text_repel geom_label_repel
 #' @import ggplot2
 
@@ -2248,11 +2250,11 @@ corr_plot <- function(df, x_column, y_column, label_names, gene_list = c(""), to
   
   p1 <- ggplot(sub_1, aes(x = { {x_column} }, y = { {y_column} }, label = { {label_names} })) +
     geom_point(aes(fill = target, shape = factor(top_genes_common, levels = c("TRUE", "FALSE"))), size = 2, alpha = 0.4, show.legend = TRUE) +
-    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "darkorange", "in_gene_list" = "firebrick"), drop = FALSE) +
+    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "firebrick", "in_gene_list" = "darkorange"), drop = FALSE) +
     scale_shape_manual(values = c("FALSE"= 21, "TRUE" = 23), drop = FALSE) +
-    geom_label_repel(data = filter(sub_3, in_gene_list), color = "firebrick", show.legend = FALSE, max.overlaps = max.overlaps, min.segment.length = 0,
+    geom_label_repel(data = filter(sub_3, in_gene_list), color = "darkorange", show.legend = FALSE, max.overlaps = max.overlaps, min.segment.length = 0,
                      fill = alpha(c("white"),0.7)) +
-    geom_label_repel(data = filter(sub_2, top_genes_common), color = "darkorange", show.legend = FALSE, max.overlaps = max.overlaps, min.segment.length = 0,
+    geom_label_repel(data = filter(sub_2, top_genes_common), color = "firebrick", show.legend = FALSE, max.overlaps = max.overlaps, min.segment.length = 0,
                      fill = alpha(c("white"),0.7)) +
     geom_abline(intercept = 0, linetype = "solid", color = "black") +
     ggpubr::stat_cor(data = sub_1, aes(label = ..r.label..)) +
@@ -2273,19 +2275,22 @@ corr_plot <- function(df, x_column, y_column, label_names, gene_list = c(""), to
   
   p2 <- ggplot(sub_4, aes(x = jittered, y = {{x_column}}, label = {{label_names}})) +
     geom_point(aes(fill = target, shape = factor(top_genes_x, levels = c("TRUE", "FALSE"))), size = 2, alpha = 0.4, show.legend = TRUE) +
-    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "darkorange", "in_gene_list" = "firebrick"), drop = FALSE) +
+    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "firebrick", "in_gene_list" = "darkorange"), drop = FALSE) +
     scale_shape_manual(values = c(`FALSE`= 21, `TRUE` = 23), drop = FALSE) +
     
-    geom_label_repel(data = filter(sub_6, in_gene_list), color = "firebrick", show.legend = FALSE, max.overlaps = Inf,
+    geom_label_repel(data = filter(sub_6, in_gene_list), color = "darkorange", show.legend = FALSE, max.overlaps = Inf,
                      fill = alpha(c("white"),0.7)) +
-    geom_label_repel(data = filter(sub_5, top_genes_x), color = "darkorange", show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0,
+    geom_label_repel(data = filter(sub_5, top_genes_x), color = "firebrick", show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0,
                      fill = alpha(c("white"),0.7)) +
-    labs(title = x_char, fill = "Targets", shape = "Top Genes") +
+    labs(title = paste0("Only in ", x_char), fill = "Targets", shape = "Top Genes") +
     guides(fill = guide_legend( 
       override.aes=list(shape = 21))) +
+    lims(x = c(-0.4, 0.4)) +
     theme_bw()+
     theme(
-      axis.title.x = element_blank()
+      axis.title.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.text.x = element_blank()    
     )
   
   sub_7 <- df %>% 
@@ -2301,18 +2306,21 @@ corr_plot <- function(df, x_column, y_column, label_names, gene_list = c(""), to
   p3 <- ggplot(sub_7, aes(x = jittered, y = {{y_column}}, label = {{label_names}})) +
     geom_point(aes(fill = target, shape = factor(top_genes_y, levels = c("TRUE", "FALSE"))), size = 2, alpha = 0.4, show.legend = TRUE) +
     scale_shape_manual(values = c(`FALSE`= 21, `TRUE` = 23), drop = FALSE) +
-    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "darkorange", "in_gene_list" = "firebrick"), drop = FALSE) +
-    geom_label_repel(data = filter(sub_9, in_gene_list), color = "firebrick", show.legend = FALSE, max.overlaps = Inf,
+    scale_fill_manual(values = c("gene" = "grey90", "top_gene" = "firebrick", "in_gene_list" = "darkorange"), drop = FALSE) +
+    geom_label_repel(data = filter(sub_9, in_gene_list), color = "darkorange", show.legend = FALSE, max.overlaps = Inf,
                      fill = alpha(c("white"),0.7)) +
-    geom_label_repel(data = filter(sub_8, top_genes_y), color = "darkorange", show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0,
+    geom_label_repel(data = filter(sub_8, top_genes_y), color = "firebrick", show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0,
                      fill = alpha(c("white"),0.7)) +
     
-    labs(title = y_char, fill = "Targets", shape = "Top Genes") +
+    labs(title = paste0("Only in ", y_char), fill = "Targets", shape = "Top Genes") +
     guides(fill = guide_legend( 
       override.aes=list(shape = 21))) +
+    lims(x = c(-0.4, 0.4)) +
     theme_bw()+
     theme(
-      axis.title.x = element_blank()
+      axis.title.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.text.x = element_blank()
     )
   
   panel_list <- list()
@@ -2527,5 +2535,95 @@ merge_se <- function(se = list(), keep_all = FALSE){
   se <- SummarizedExperiment::SummarizedExperiment(assay = as.matrix(as), rowData = rd, colData = cd)
   rowData(se)$name <- rownames(se)
   
+  return(se)
+}
+
+
+#' Add statistical summaries for all conditions to SummarizedExperiment
+#'
+#' This function calculates various statistical summaries for protein intensities
+#' in a SummarizedExperiment object. The user can specify which statistics to compute 
+#' via the `type` argument, with the default being "all" to calculate all available statistics.
+#' The computed statistics are merged back into the `rowData` of the SummarizedExperiment object.
+#'
+#' @param se A `SummarizedExperiment` object containing the protein data to be summarized.
+#' @param type A character vector specifying which statistics to calculate. Options include:
+#'   \describe{
+#'     \item{"all"}{(default) calculates all available statistics (mean, sd, min, max, percentiles, IQR, counts).}
+#'     \item{Custom set of statistics, e.g. `c("mean", "sd", "min")`} selects only the specified statistics. Available options are: 
+#'         \itemize{
+#'           \item "mean": Mean intensity
+#'           \item "sd": Standard deviation
+#'           \item "min": Minimum intensity
+#'           \item "max": Maximum intensity
+#'           \item "p25": 25th percentile intensity
+#'           \item "p50": 50th percentile (median) intensity
+#'           \item "p75": 75th percentile intensity
+#'           \item "iqr": Interquartile range
+#'           \item "missing_count": Count of missing (NA) values
+#'           \item "measured_count": Count of non-NA values
+#'         }
+#'   }
+#'
+#' @return The updated `SummarizedExperiment` object with the selected statistics added to the `rowData`.
+#' @export
+#' 
+#' @importFrom stats IQR mean sd min max quantile sum
+#' @import dplyr
+#' @importFrom SummarizedExperiment rowData
+add_stats <- function(se, type = "all") {
+  # Extract data in long format from the SummarizedExperiment object
+  df_long <- get_df_long(se)
+  # Convert all non-finite values (NaN, Inf, -Inf) to NA
+  df_long <- df_long %>%
+    mutate(intensity = ifelse(is.finite(intensity), intensity, NA))
+  # Define the list of possible statistics and their respective calculation methods with the is.na check
+  stats_to_calculate <- list(
+    mean_intensity = ~ ifelse(all(is.na(.x)), NA, mean(.x, na.rm = TRUE)),
+    sd_intensity = ~ ifelse(all(is.na(.x)), NA, sd(.x, na.rm = TRUE)),
+    min_intensity = ~ ifelse(all(is.na(.x)), NA, min(.x, na.rm = TRUE)),
+    max_intensity = ~ ifelse(all(is.na(.x)), NA, max(.x, na.rm = TRUE)),
+    p25_intensity = ~ ifelse(all(is.na(.x)), NA, quantile(.x, probs = 0.25, na.rm = TRUE)),
+    p50_intensity = ~ ifelse(all(is.na(.x)), NA, quantile(.x, probs = 0.50, na.rm = TRUE)),  # Median
+    p75_intensity = ~ ifelse(all(is.na(.x)), NA, quantile(.x, probs = 0.75, na.rm = TRUE)),
+    iqr_intensity = ~ ifelse(all(is.na(.x)), NA, IQR(.x, na.rm = TRUE)),  # Interquartile range
+    missing_count = ~ sum(is.na(.x)),  # Count of NA values
+    measured_count = ~ sum(!is.na(.x))  # Count of non-NA values
+  )
+  # If type is "all", calculate all stats; otherwise, filter the stats to calculate
+  if (type == "all") {
+    selected_stats <- names(stats_to_calculate)
+  } else {
+    selected_stats <- intersect(names(stats_to_calculate), paste0(type, "_intensity"))
+    if ("missing_count" %in% type) selected_stats <- c(selected_stats, "missing_count")
+    if ("measured_count" %in% type) selected_stats <- c(selected_stats, "measured_count")
+  }
+  # Summarize the selected statistics
+  df_summaries <- df_long %>%
+    group_by(name, condition) %>%
+    summarize(across(
+      .cols = intensity,
+      .fns = stats_to_calculate[selected_stats],
+      .names = "{.fn}"
+    )) %>%
+    ungroup()
+  # Pivot the data to a wide format, appending suffixes to columns
+  df_summaries_wide <- df_summaries %>%
+    tidyr::pivot_wider(
+      names_from = condition, 
+      values_from = selected_stats,
+      names_glue = "{condition}_{.value}"  # Automatically create column names with suffixes
+    )
+  # Arrange columns alphabetically (with 'name' as the first column)
+  df_summaries_wide <- df_summaries_wide %>%
+    dplyr::select(name, sort(colnames(df_summaries_wide)[-1]))  # Keep 'name' first
+  # Extract the existing rowData from the SummarizedExperiment object
+  row_data <- rowData(se)
+  # Merge the new summary data into rowData
+  row_data <- as.data.frame(row_data) %>%
+    left_join(df_summaries_wide, by = "name")  # Merge by 'name' which is the protein identifier
+  # Update the rowData of the SummarizedExperiment object
+  rowData(se) <- as(row_data, "DataFrame")  # Convert it back to a DataFrame
+  # Return the updated SummarizedExperiment object
   return(se)
 }

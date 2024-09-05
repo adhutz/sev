@@ -2571,7 +2571,6 @@ merge_se <- function(se = list(), keep_all = FALSE){
 #' @importFrom stats IQR sd quantile
 #' @import dplyr
 #' @importFrom SummarizedExperiment rowData
-#' @importFrom base mean max min sum
 add_stats <- function(se, type = "all") {
   # Extract data in long format from the SummarizedExperiment object
   df_long <- get_df_long(se)

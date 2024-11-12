@@ -2539,10 +2539,743 @@ merge_se <- function(se = list(), keep_all = FALSE){
 }
 
 
-#' Add statistical summaries for all conditions to SummarizedExperiment
+#' Plot Antigen Intensities and Differences
+#'
+#' This function creates patient-wise plots of protein intensity differences for a given contrast between conditions in a `SummarizedExperiment` object. Optionally, intensities can be z-scaled. For z-score calculation, additional conditions can be included. The function also generates an overlap plot that depicts in how many patients the given proteins were above the thresholds.
+#'
+#' @param se A `SummarizedExperiment` object containing the experimental data.
+#' @param contrast A string specifying the comparison between conditions in the format "test_vs_control".
+#' @param additional_sets A character vector specifying additional condition sets to include in the analysis. Defaults to "none", meaning no additional sets are included. Set to "all" to include all conditions.
+#' @param scale A logical value indicating whether to scale the data by z-transformation. Defaults to `FALSE`.
+#' @param min_diff A numeric value specifying the minimum difference required for data points to be considered. Defaults to `1`.
+#' @param min_intensity A numeric value specifying the minimum intensity for data points to be considered. Defaults to `10`. If scaled is set to TRUE, this needs to be changed to a lower value. 
+#' @param max.overlaps A numeric value indicating the maximum number of label overlaps allowed in the plot. Defaults to `40`.
+#' @param targets A data frame containing `name` and `target` columns, specifying target proteins or features of interest. Defaults to an empty data frame.
+#'
+#' @return A combined plot displaying individual and overlapping data points for the specified contrast.
+#' @details The function processes the `SummarizedExperiment` data to calculate the mean of control samples and the differences between test samples and control means. It generates individual plots for test samples and an overlap plot for the specified conditions.
+#' 
+#' If the mean for the control condition is not already present in the data, it is calculated using `sev::add_stats()`.
+#'
+#' @examples
+#' # Assuming `se` is a valid SummarizedExperiment object and `contrast` is specified:
+#' plot_antigen(se, contrast = "treatment_vs_control")
+#'
+#' @importFrom DEP2 get_df_wide
+#' @importFrom dplyr select mutate across full_join
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom patchwork wrap_plots plot_annotation plot_layout
+#' @export
+plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, min_diff = 1, min_intensity = 10, max.overlaps = 40, targets = data.frame(name = character(0), target = character(0))){
+  
+  ctrl <- gsub(".*_vs_(.*)$","\\1", contrast)
+  ctrl_mean <- paste0("mean_", ctrl)
+  
+  test_condition <- gsub("(.*)_vs_.*","\\1", contrast)
+  
+  if(!paste0("mean_", ctrl) %in% colnames(rowData(se))){
+    se <- sev::add_stats(se, type = "mean")
+    message(paste0("No mean for ctrl condition found. Mean for\"", ctrl, "\" was calculated via sev::add_stats(). This value is not retained in the se object."))
+  }
+  
+  if(additional_sets == "all"){
+    additional_sets <- se$condition
+  } else if(additional_sets == "none"){
+    additional_sets <- NULL
+  }
+  
+  sets <- strsplit(contrast, "_vs_") %>% unlist() %>% c(., additional_sets)  %>% unique()
+  
+  df_diff <- se %>% DEP2::get_df_wide() 
+  
+  if(scale){
+    temp_df <-  df_diff %>% select(matches(paste0(sets, "_[0-9]*$"))) %>% t() %>% scale() %>% t()%>% cbind(df_diff %>% select(name, contains("_diff"))) %>% mutate(across(everything() , ~ifelse(is.na(.), 0, .)))
+  } else {
+    temp_df <- df_diff %>% select(matches(paste0(sets, "_[0-9]*$"))) %>% cbind(df_diff %>% select(name, paste0(contrast, "_diff"))) %>% mutate(across(everything() , ~ifelse(is.na(.), 0, .)))
+  }
+  
+  temp_df <- df_diff %>% select(name, matches(paste0(sets, "_[0-9]*$")), !!sym(ctrl_mean)) %>% 
+    tidyr::pivot_longer(-c(name, !!sym(ctrl_mean)), names_to = "sample", values_to = "intensity") %>% 
+    mutate(diff = intensity - !!sym(ctrl_mean)) %>% 
+    tidyr::pivot_wider(names_from = "sample", values_from = c(intensity, diff)) %>% 
+    select(name, starts_with("diff")) %>% 
+    dplyr::full_join(temp_df, by = c("name" = "name"))
+  
+  
+  test_samples <- grep(paste0("^", test_condition, "_[0-9]*$"), colnames(temp_df), value = TRUE)
+  
+  p_individuals <- lapply(test_samples, function(x) plot_indiviuals(temp_df, paste0("diff_", x) ,x,  min_diff, min_intensity, max.overlaps = max.overlaps, ctrl = ctrl, scaled = scale)) 
+  
+  p_overlaps <- plot_overlap(temp_df, samples = grep(paste0("^", sets, "_[0-9]*$", collapse = "|"), colnames(temp_df), value = TRUE), 
+                             ctrl, targets = targets, scaled = scale)
+  
+  p <- patchwork::wrap_plots(p_individuals, ncol = 2) / p_overlaps + 
+    patchwork::plot_annotation(title = contrast) + patchwork::plot_layout(heights = c(1, 0.8))
+}
+
+
+#' Plot Individual Antigen Differences
+#'
+#' This function generates a scatter plot visualizing the difference between the intensity of a sample and the control mean for individual data points in a data frame. Points are colored based on whether they meet specified threshold criteria for both axes.
+#'
+#' @param df A data frame containing the data to be plotted.
+#' @param x A string representing the column name for the x-axis variable (the difference between sample intensity and control mean).
+#' @param y A string representing the column name for the y-axis variable (sample intensity).
+#' @param cut_x A numeric value specifying the threshold for the x-axis variable, above which points are highlighted.
+#' @param cut_y A numeric value specifying the threshold for the y-axis variable, above which points are highlighted.
+#' @param max.overlaps A numeric value indicating the maximum number of overlapping labels for the text. Defaults to `10`.
+#' @param ctrl A string specifying the control condition name, used for labeling the plot. Defaults to `"ctrl"`.
+#' @param scaled A logical value indicating whether the y-axis should be labeled as scaled. Defaults to `FALSE`.
+#'
+#' @return A `ggplot2` object representing the scatter plot with points color-coded based on whether they meet the threshold criteria. Points above the threshold are labeled with their `name`.
+#' @details The function uses `ggplot2` to create a scatter plot where points are highlighted and labeled if they meet or exceed the specified `cut_x` and `cut_y` values. Labels for points are added using `geom_text_repel` to reduce overlap.
+#'
+#' @examples
+#' # Assuming `df` is a valid data frame with relevant columns:
+#' plot_indiviuals(df, x = "diff_sample1", y = "sample1", cut_x = 1, cut_y = 10)
+#'
+#' @importFrom ggplot2 ggplot aes geom_point scale_color_manual labs
+#' @importFrom dplyr filter
+#' @importFrom ggrepel geom_text_repel
+plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl = "ctrl", scaled = FALSE){
+  
+  df <- df %>% filter(!is.na(!!sym(x)) & !is.na(!!sym(y)))
+  p <- df %>% ggplot(aes(x = !!sym(x), y = !!sym(y), color = ifelse(!!sym(x) >= cut_x & !!sym(y) > cut_y, "TRUE", "FALSE"))) +
+    geom_point(alpha = 0.5) +
+    scale_color_manual(values = c("TRUE" = "darkorange", "FALSE" = "darkgrey")) +
+    labs(color = "Above Thresholds", y = paste0(ifelse(scaled, "Scaled ", ""), "Intensity (", y, ")"), x = paste0(y, " - mean(", ctrl, ")")) +
+    geom_text_repel(data = filter(df, !!sym(x) >= cut_x & !!sym(y) >= cut_y), aes(label = name), max.overlaps = max.overlaps) +
+    my_theme()
+  return(p)
+}
+
+
+#' Plot Overlap of Antigen Intensity Differences
+#'
+#' This function creates a summary plot that visualizes the overlap of proteins based on the mean difference and mean intensity across multiple samples. It highlights the distribution of data points that meet certain criteria and optionally labels specific targets.
+#'
+#' @param df A data frame containing the processed data, with columns representing sample intensities and differences. Defaults to `temp_df`.
+#' @param samples A character vector specifying which sample columns to include. If `NULL`, samples matching the condition pattern are selected automatically.
+#' @param condition A string specifying the condition name used for filtering and plotting. Defaults to `"MGN_ag_neg"`.
+#' @param ctrl A string representing the control condition name, used for labeling the plot. Defaults to `"ctrl"`.
+#' @param targets A data frame with `name` and `target` columns for highlighting specific targets. Defaults to an empty data frame.
+#' @param scaled A logical value indicating whether the y-axis should be labeled as scaled. Defaults to `FALSE`.
+#'
+#' @return A `ggplot2` object representing a scatter plot that shows antigen overlap based on mean differences and intensities, with options for customized labeling and color coding.
+#' @details The function processes input data to compute summaries for each antigen and plots them based on the number of samples in which they are detected. Points can be color-coded by target if provided, and labeled to show individual antigens and patients.
+#'
+#' @examples
+#' # Assuming `df` is a valid data frame with appropriate columns:
+#' plot_overlap(df, condition = "condition1", ctrl = "control1", targets = targets_df)
+#'
+#' @importFrom dplyr rename_with select filter group_by summarize left_join
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom ggplot2 ggplot aes geom_point scale_fill_discrete labs facet_wrap scale_fill_viridis_d
+#' @importFrom ggrepel geom_text_repel
+plot_overlap  <- function(df = temp_df, samples = NULL, condition = "MGN_ag_neg", ctrl = "ctrl", targets = data.frame(name = character(0), target = character(0)), scaled = FALSE){ 
+  if(is.null(samples)){
+    samples <- grep(paste0("^", condition, "_[1-9]*$"), colnames(df), value = TRUE)
+  }
+  
+  
+  df_sum <- df %>% dplyr::rename_with(.cols = all_of(samples), ~ gsub("(.*)", "intensity_\\1", .x)) %>% 
+    select(name, grep(paste0(samples, collapse = "|"), colnames(.), value = TRUE)) %>%
+    tidyr::pivot_longer(-c(name), names_to = c("type", "patient"), values_to = "intensity", names_pattern = "(.*?)_(.*)") %>% 
+    tidyr::pivot_wider(names_from = "type", values_from = "intensity") %>%
+    filter(diff >= 0 & intensity >= 0.5) %>% 
+    group_by(name) %>% 
+    summarize(n = factor(n(), levels = 1:length(test_samples)), 
+              diff = mean(diff, na.rm = TRUE), 
+              patient = paste0(gsub(".*_(.*)", "\\1",patient), collapse = ", "), 
+              mean_intensity = mean(intensity, na.rm = TRUE)) %>% filter(n != 0)
+  
+  sample = paste0(".*", condition, "_[1-9]*$")
+  
+  df_sum <- df_sum %>% dplyr::left_join(targets, by = "name") 
+  
+  if(targets %>% nrow() > 0){
+    p_summary <- df_sum %>% ggplot(aes(x = diff, y = mean_intensity, fill = target))+
+      geom_point(shape = 21, size = 3, alpha = 0.8)+
+      scale_fill_discrete(na.value = "grey90") +
+      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = 0) +
+      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", patient)), min.segment.length = 0) +
+      facet_wrap(.~n, scales = "free") +
+      labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(condition, "vs", ctrl)) +
+      my_theme() 
+  } else {
+    p_summary <- df_sum %>% ggplot(aes(x = diff, y = mean_intensity, fill = n))+
+      geom_point(shape = 21, size = 3, alpha = 0.8)+
+      scale_fill_viridis_d(option = "inferno", end = 0.8) +
+      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = 0) +
+      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", patient)), min.segment.length = 0) +
+      facet_wrap(.~n, scales = "free") +
+      labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(condition, "vs", ctrl)) +
+      my_theme()   
+  }
+  
+  return(p_summary)
+}
+
+
+#' Plot Antigen Missing Data Visualization
+#'
+#' This function creates a detailed plot to visualize missing data patterns, highlighting the percentage of missing data in test and control conditions. It also allows for the labeling of specific targets.
+#'
+#' @param se A `SummarizedExperiment` object containing the data to be analyzed.
+#' @param test_condition A string specifying the test condition to analyze. Defaults to `"lcm_igan"`.
+#' @param ctrl_condition A string specifying the control condition to compare against. Defaults to `"lcm_ctrl"`.
+#' @param quantile A numeric value indicating the quantile cutoff for low intensity in the control condition. Defaults to `0.1`.
+#' @param perc_low_ctrl A numeric threshold for filtering antigens based on the percentage of low-intensity measurements in the control condition. Defaults to `80`.
+#' @param targets A data frame with `name` and `target` columns to highlight specific targets. Defaults to an empty data frame.
+#'
+#' @return A `ggplot2` object showing a plot with points representing antigens, color-coded based on their missing data percentages, and optionally labeled.
+#' @details The function calculates missing and measured data percentages, applies quantile-based cutoffs for low intensity, and generates a scatter plot with facets showing different categories of missing data in the test and control conditions. The visualization helps identify patterns of data availability.
+#'
+#' @examples
+#' # Assuming `se` is a `SummarizedExperiment` object with relevant data:
+#' plot_antigen_missing(se, test_condition = "test_cond", ctrl_condition = "control_cond", quantile = 0.05, perc_low_ctrl = 70)
+#'
+#' @importFrom dplyr filter mutate group_by ungroup summarize_all summarize left_join
+#' @importFrom tidyr pivot_wider pivot_longer
+#' @importFrom ggplot2 ggplot aes geom_point scale_fill_brewer facet_grid labs theme element_blank
+#' @importFrom ggrepel geom_text_repel
+#' @importFrom forcats fct_rev
+#' @export
+plot_antigen_missing <- function(se, test_condition = "lcm_igan", ctrl_condition = "lcm_ctrl", 
+                                 quantile = 0.1, perc_low_ctrl = 80, targets = data.frame(name = character(0), target = character(0))){
+  
+  df_long <- get_df_long(se[, se$condition %in% c(test_condition, ctrl_condition)]) %>% select(name, condition, intensity, label, replicate)
+  n_ctrl <- sum(se$condition == ctrl_condition)
+  n_test <- sum(se$condition == test_condition)
+  
+  df_pat <- df_long %>% 
+    filter(!is.na(intensity), condition == test_condition) %>% 
+    mutate(condition = "test_condition") %>%
+    group_by(name) %>% 
+    mutate(n = n()) %>% 
+    ungroup() %>%  
+    mutate(perc_miss = ((n_test-n)/n_test)*100, 
+           perc_meas = ((n/n_test)*100)) %>% 
+    group_by(condition, name) %>% 
+    mutate(mean = mean(intensity, na.rm = TRUE)) %>% 
+    ungroup() %>%   
+    tidyr::pivot_wider(names_from = condition, 
+                       values_from = c(intensity, perc_miss, perc_meas, mean, n))
+  
+  df_ctrl <- df_long %>% 
+    filter(condition == ctrl_condition) %>% 
+    mutate(condition = "ctrl_condition") %>%
+    group_by(replicate, condition) %>% 
+    mutate(cut_off = quantile(intensity, probs = quantile, na.rm = TRUE)) %>% 
+    ungroup() %>%
+    group_by(name, condition) %>% 
+    summarize(n = sum(!is.na(intensity)), 
+              n_low = sum(intensity < cut_off |is.na(intensity)), 
+              n_miss = sum(is.na(intensity)),
+              perc_miss = ((n_ctrl-sum(!is.na(intensity)))/n_ctrl)*100, 
+              perc_low =  ((sum(intensity < cut_off |is.na(intensity)))/n_ctrl)*100, 
+              mean = mean(intensity, na.rm = TRUE)) %>% 
+    ungroup() %>% 
+    tidyr::pivot_wider(names_from = condition, 
+                       values_from = c(perc_miss, perc_low, mean, n_low, n))
+  
+  df_final <- inner_join(df_pat, df_ctrl, by = "name") %>% 
+    #filter(perc_low_ctrl_condition >= perc_low_ctrl) %>% 
+    group_by(name) %>% 
+    summarize_all(mean, na.rm = TRUE) %>%
+    mutate(perc_miss_ctrl_cut = cut(perc_miss_ctrl_condition, 
+                                    breaks = c(0, 70, 80, 99, 100), 
+                                    labels = c("0-70 %","70-80 %", "80-99 %", "100 %"), 
+                                    include.lowest = TRUE)) %>% 
+    mutate(x_coord = runif(nrow(.))) %>% 
+    mutate(perc_low_ctrl_cut = cut(perc_low_ctrl_condition, 
+                                   breaks = c(0, 80, 99, 100), 
+                                   labels = c("0-80 %", "80-99 %", "100 %"), 
+                                   include.lowest = TRUE, include.highest = TRUE)) %>%
+    mutate(perc_miss_igan_cut = cut(perc_miss_test_condition, 
+                                    breaks = c(0, 10, 30, 50, 100), 
+                                    labels = c("0-10 %", "10-30 %", "30-50 %", "50-100 %"), 
+                                    include.lowest = TRUE))%>%
+    mutate(perc_meas_igan_cut = cut(perc_meas_test_condition, 
+                                    breaks = c(0, 30, 50, 70, 90, 100), 
+                                    labels = c("0-30 %", "30-50 %", "50-70 %", "70-90 %", "90-100 %"), 
+                                    include.lowest = TRUE)) %>%
+    mutate(perc_miss_ctrl_cut = forcats::fct_rev(factor(perc_miss_ctrl_cut, levels = c("0-70 %","70-80 %", "80-99 %", "100 %"))),
+           perc_low_ctrl_cut = forcats::fct_rev(factor(perc_low_ctrl_cut, levels = c("0-80 %", "80-99 %", "100 %"))),
+           perc_miss_igan_cut = factor(perc_miss_igan_cut, levels = c("0-10 %", "10-30 %", "30-50 %", "50-100 %")),
+           perc_meas_igan_cut = factor(perc_meas_igan_cut, levels = c("0-30 %", "30-50 %", "50-70 %", "70-90 %", "90-100 %"))) %>% 
+    dplyr::left_join(targets, by = "name") 
+  
+  set.seed(1)
+  
+  if(nrow(targets) == 0){
+    p_final <- df_final  %>% 
+      #filter(perc_meas_igan > 30) %>%
+      ggplot(aes(x = x_coord, y = mean_test_condition, fill = perc_miss_ctrl_cut)) +
+      geom_point(shape = 21, size = 3)+
+      scale_fill_brewer(palette = "OrRd", direction = -1) +
+      ggrepel::geom_text_repel(aes(label = name), min.segment.length = 0, max.overlaps = 10) +
+      facet_grid(perc_low_ctrl_cut ~ perc_meas_igan_cut, scales = "free") +
+      labs(fill = paste0("Percent missing in ", ctrl_condition), y = paste0("Mean(Intensity) in ", test_condition), x = "") +
+      my_theme() +
+      theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank())
+  } else{
+    p_final <- df_final  %>% 
+      #filter(perc_meas_igan > 30) %>%
+      ggplot(aes(x = x_coord, y = mean_test_condition, fill = target)) +
+      geom_point(aes(shape = perc_miss_ctrl_cut), size = 3)+
+      scale_fill_brewer(palette = "OrRd", direction = -1) +
+      scale_shape_manual(values = c(21, 22, 24, 23, 25)) +
+      ggrepel::geom_text_repel(aes(label = name), min.segment.length = 0, max.overlaps = 10) +
+      facet_grid(perc_low_ctrl_cut ~ perc_meas_igan_cut, scales = "free") +
+      labs(fill = paste0("Percent missing in ", ctrl_condition), y = paste0("Mean(Intensity) in ", test_condition), x = "") +
+      my_theme() +
+      theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank())
+  }
+  return(p_final)
+}
+
+
+############################################################################
+############################################################################
+############################################################################
+#' Retrieve Gene Data from a Specified KEGG Pathway
+#'
+#' This function uses the R-package KEGGREST to retrieve data for a specified KEGG pathway and then returns a tidy data frame
+#' that includes: "kegg_gene_id", "description", "gene_symbol", "kegg_ontology_number", "enzyme_commission_number", "kegg_path_number" and "kegg_path_name" 
+#'
+#' @param keggpath_id A character string specifying the KEGG pathway ID.
+#' Default is "hsa00190" for oxidative phosphorylation in Homo sapiens.
+#'
+#' @return A data frame containing Gene IDs, Descriptions, Gene symbols, KEGG ontology numbers,
+#' Enzyme Commission numbers, the pathway ID queried, and the pathway name.
+#'
+#' @examples
+#' genes_from_kegg("hsa00190")
+#' oxphos <- genes_from_kegg(keggpath_id = "hsa00190")  # default, or specify another pathway ID https://www.kegg.jp/entry/map00190
+#' cellcycle <- genes_from_kegg(keggpath_id = "hsa04110") #https://www.genome.jp/pathway/map04110
+#' mtor <- genes_from_kegg(keggpath_id = "hsa04150") #https://www.kegg.jp/pathway/map=map04150
+#' ampk <- genes_from_kegg(keggpath_id = "hsa04152") #https://www.kegg.jp/pathway/map=map04152
+#' print(cellcycle)
+#' 
+#' 
+#' # Or mutliple keggpaths, assuming you have a vector of 4 keggpath_ids
+#' keggpath_ids <- c("hsa00190", "hsa04110", "hsa04150", "hsa04152")
+#' 
+#' # Initialize an empty list to store the data frames
+#' list_of_dataframes <- list()
+#' 
+#' # Loop over each keggpath_id
+#' for (keggpath_id in keggpath_ids) {
+#'   # Call the genes_from_kegg function for each keggpath_id
+#'   df <- genes_from_kegg(keggpath_id)
+#' 
+#'   # Name the data frame according to the keggpath_id and add it to the list
+#'   list_of_dataframes[[keggpath_id]] <- df
+#' }
+#' 
+#' # Now, list_of_dataframes is a list of data frames, each named after a keggpath_id
+#' # Use bind_rows to combine all data frames into a single data frame
+#' combined_df <- bind_rows(list_of_dataframes, .id = "keggpath_id")
+#' @importFrom dplyr mutate
+#' @export
+genes_from_kegg <- function(keggpath_id = "hsa00190") {
+  # Helper to manage library loading
+  ensurePackage <- function(pkg, bioconductor = FALSE) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      if (bioconductor) {
+        if (!requireNamespace("BiocManager", quietly = TRUE)) {
+          install.packages("BiocManager")
+        }
+        BiocManager::install(pkg)
+      } else {
+        install.packages(pkg)
+      }
+      library(pkg, character.only = TRUE)
+    }
+  }
+  
+  # Ensure required libraries are loaded
+  ensurePackage("KEGGREST", bioconductor = TRUE)
+  ensurePackage("tidyverse")
+  ensurePackage("magrittr")
+  
+  
+  # Fetching KEGG pathway data only once
+  pathway_data <- KEGGREST::keggGet(keggpath_id)[[1]]
+  
+  # Get human genes
+  genes <- pathway_data$GENE
+  
+  # Separate IDs and Descriptions
+  kegg_gene_id <- genes[seq(1, length(genes), by = 2)]
+  description <- genes[seq(2, length(genes), by = 2)]
+  
+  # Combine into a data frame
+  gene_data <- data.frame(kegg_gene_id, description, stringsAsFactors = FALSE)
+  
+  # Extract additional details
+  gene_data <- gene_data %>%
+    dplyr::mutate(
+      gene_symbol = sapply(description, function(x) {
+        strsplit(x, ";")[[1]][1]
+      }),
+      kegg_ontology_number = sapply(description, function(x) {
+        matches <- regmatches(x, regexpr("(?<=\\[KO:)[^\\]]+", x, perl = TRUE))
+        if (length(matches) > 0) matches[1] else NA
+      }),
+      enzyme_commission_number = sapply(description, function(x) {
+        matches <- regmatches(x, regexpr("(?<=\\[EC:)[^\\]]+", x, perl = TRUE))
+        if (length(matches) > 0) matches[1] else NA
+      }),
+      kegg_path_number = keggpath_id, # Add the new column 'kegg'
+      kegg_path_name = pathway_data$NAME # Directly add pathway name from fetched data
+    )
+  
+  return(gene_data)
+}
+
+
+################################################
+################################################
+################################################
+#' Get Data in Wide Format with Specified/Available Assays Information from summarized experiment
+#'
+#' This function converts a SummarizedExperiment object into a wide-format data frame.
+#' It appends all or selected assays data to the regular DEP2 table created with DEP2::get_df_wide()
+#'
+#' @param se A SummarizedExperiment object containing the assay(s).
+#' @param assays Optional character vector specifying the assay(s) to include.
+#'        If NULL or not provided, all available assays from the SummarizedExperiment
+#'        are used.
+#'
+#' @return A data frame in wide format with selected/all assays data joined via dplyr::full_join().
+#' 
+#' @examples
+#' # Assuming se_diff is an existing SummarizedExperiment object
+#' df_out <- get_df_wide_append_assay(se_diff, assays = c("lfq_raw", "imputed_DEP2"))
+#' df_out_all <- get_df_wide_append_assay(se_diff)  # Uses all available assays
+#'
+#' @export
+
+get_df_wide_append_assay <- function(se, assays = NULL) {
+  # If assays is NULL, retrieve all assay names from SummarizedExperiment
+  if (is.null(assays)) {
+    assays <- names(assays(se))
+    print("Using all available assays.")
+  } else {
+    print("Using specified assays.")
+  }
+  
+  # Print the assays being processed
+  message("Assay names: ", paste(assays, collapse = ", "))
+  
+  if (length(assays) < 1) {
+    stop("No valid assays provided or available in the SummarizedExperiment object.")
+  }
+  
+  # Proceed with the original dataframe and merging process using selected assays
+  # Initial df using DEP2::get_df_wide(), and some sorting
+  df <- get_df_wide(se) %>% 
+    dplyr::select(name,gene_names,protein_ids, protein_descriptions = description, ID, orig_prot_ids = protein, contains('_vs_'),1:ncol(.))
+  
+  # Initialize an empty tibble for the eventual joins
+  result <- tibble(name = df$name)
+  
+  # Loop through each specified assay, process data, and join
+  for (assay_name in assays) {
+    if (!assay_name %in% names(assays(se))) {
+      warning(paste("Assay", assay_name, "not found in SummarizedExperiment; it will be skipped."))
+      next
+    }
+    
+    assay_data <- as.data.frame(assay(se, assay_name)) %>%
+      rownames_to_column("name") %>%
+      as_tibble() %>%
+      rename_with(~paste0(.x, "_", assay_name), -name)
+    
+    # Join with the main result DataFrame
+    result <- result %>%
+      full_join(assay_data, by = "name")
+  }
+  
+  # Join all together with initial df
+  result2 <- df %>%
+    full_join(result, by = "name")
+  
+  return(result2)
+}
+
+
+
+
+############################################################################
+############################################################################
+############################################################################
+#' Evenly spread/randomize samples into manageable blocks for batch-processing
+#'
+#' The function considers batches, conditions and bioreplicates, and evenly spreads/randomizes samples into manageable experimental blocks.
+#' For example, you have an experiment with 200 samples (4 conditions,n=50 per condition).
+#' But you cannot process all of these in a single block, because you can only process a maximum of 30 samples at one time.
+#' Therefore you need to split your lab work into blocks of a certain size..
+#' This function assists in the blocking, so that conditions (and any other prior batching or cohorts) are spread EVENLY across your blocks.
+#' This ensures that 
+#' i) the effects you are measuring between your conditions are not clouded/overshadowed by blocking-effects and 
+#' ii) the effects of the blocking are not accidentally interpreted by you as 'real' effects caused by your conditions
+#'
+#' @param df Input Data frame that contains your blocked.
+#' @param batch_col Column name representing batches (in case the samples come from different batches, e.g. cohorts or prior batching during processing), defaults to "batch".
+#' @param condition_col Column name representing your test conditions, defaults to a column called "condition" in your dataframe.
+#' @param bio_replicate_col Column name representing biological replicates, defaults to "bio_replicate".
+#' @param scramble Logical flag (TRUE or FALSE) to determine whether rows should be shuffled, defaults to TRUE.
+#' @param seed Optional numeric seed for reproducibility, defaults to NULL (no seed). But the recommendation is to set the seed to make reproducible.
+#' @return A data frame with rows rearranged into blocks. 
+#' The main outcome is column called "block". 
+#' The "block" column contains a number for your experimental blocks. Importantly, the "block_size" column contains the minimum of samples that you have to run together in one block.
+#' If this number exceeds what you can process in one block, then you need to strike some compromises. Compromise options include i) leaving out batches all togehter or,
+#' ii) in-silico reducing of any prior batching/cohorting, e.g. if you have 4 prior batches, turn them into 2 evenly mixed in-silico batches).
+#' 
+#' @examples
+#' set.seed(42)
+#' 
+#' #' Define the conditions, batches, and maximum bioreplicates
+#' conditions <- c("KO_ctrl", "WT_ctrl", "KO_treated", "WT_treated")
+#' num_batches <- 3
+#' max_bioreplicates <- 5
+#' 
+#' #' Initialize lists to store data
+#' conditions_list <- c()
+#' batches_list <- c()
+#' bioreplicates_list <- c()
+#' 
+#' #' Generate random data for the sample data frame
+#' for (condition in conditions) {
+#'   for (batch in 1:num_batches) {
+#'     num_bioreplicates <- sample(1:max_bioreplicates, 1)
+#' 
+#'     conditions_list <- c(conditions_list, rep(condition, num_bioreplicates))
+#'     batches_list <- c(batches_list, rep(paste0("Batch", batch), num_bioreplicates))
+#'     bioreplicates_list <- c(bioreplicates_list, seq(1, num_bioreplicates))
+#'   }
+#' }
+#' 
+#' #' Create a data frame
+#' sample_df <- data.frame(
+#'   condition = factor(conditions_list),
+#'   batch = factor(batches_list),
+#'   bio_replicate = bioreplicates_list
+#' )
+#' 
+#' #' Display the sample data frame
+#' print(sample_df)
+#' 
+#' 
+#' 
+#' result <- block_randomize(df = sample_df,
+#'                                 batch_col = "batch",
+#'                                 condition_col = "condition",
+#'                                 bio_replicate_col = "bio_replicate",
+#'                                 scramble = T,
+#'                                 seed = 1000)
+#'                                 
+#' @export
+
+block_randomize <- function(df, batch_col = "batch", condition_col = "condition", bio_replicate_col = "bio_replicate", scramble = TRUE, seed = NULL) {
+  
+  # Load required packages
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
+    install.packages("dplyr")
+  }
+  if (!requireNamespace("janitor", quietly = TRUE)) {
+    install.packages("janitor")
+  }
+  if (!requireNamespace("anticlust", quietly = TRUE)) {
+    install.packages("anticlust")
+  }
+  
+  library(dplyr)
+  library(janitor)
+  library(anticlust)
+  
+  # If batch_col is left empty, create a new 'batch' column with all 1s as values to indicate it is a single batch.
+  # If batch_col is left empty, any pre-existing column called 'batch' is renamed to 'user_provided_batch'. (This is to ensure it is not overwritten or discarded)
+  if (missing(batch_col) || batch_col == "") {
+    batch_col <- "batch"
+    if (exists(batch_col, where = df)) {
+      df <- df %>% rename(NOTUSED_user_defined_batch_NOTUSED = !!sym(batch_col))
+      batch_col <- "batch"
+    }
+    df <- df %>% mutate(!!batch_col := 1)
+  }
+  
+  
+  # Set seed for reproducibility if scramble is TRUE
+  if (scramble) {
+    if (!is.null(seed)) {
+      set.seed(as.numeric(seed))
+    } else {
+      set.seed(12345)
+    }
+  }
+  
+  # Clean and the dataframe up and then scramble if desired
+  tryCatch({
+    df_cleaned <- df %>%
+      dplyr::rename(batch = {{batch_col}},
+                    condition = {{condition_col}},
+                    bio_replicate = {{bio_replicate_col}}) %>%
+      dplyr::filter(if_any(everything(), ~ !is.na(.))) %>%
+      dplyr::filter(if_any(condition, ~ !is.na(.))) %>%
+      dplyr::arrange(if (scramble) sample(nrow(.)) else NULL) %>% #scramble if desired
+      dplyr::arrange(batch, condition) #order rows by batch, condition
+    
+    # Calculate parameters that are important for the anticlust package
+    min_set <- (length(unique(df_cleaned$batch)) * length(unique(df_cleaned$condition))) #this is the number of minimum samples to process simultaneously. The code multiplies the number of unique batches by the number of unique conditions. This operation calculates the total number of unique combinations of batches and conditions
+    number_sets <- ceiling(nrow(df_cleaned) / min_set) #this number indicates how many min sets you have. performs a calculation to determine how many minimum sets (min_set) are needed to cover the total number of rows in a data frame (df_cleaned)
+    
+    # Create a new dataframe with categorical sampling using the anticlust package
+    df_new <- df_cleaned %>%
+      mutate(block = anticlust::categorical_sampling(., number_sets)) %>% #if number of sets =1 it doesn't work. not sure how it handles not even numbers.
+      dplyr::arrange(block) %>%
+      mutate(new_sample_number = row_number()) %>%
+      dplyr::group_by(block) %>% 
+      mutate(block_size = n()) %>% 
+      ungroup() %>% 
+      dplyr::group_by(block, condition) %>% 
+      mutate(block_condition_size = n()) %>% 
+      ungroup() %>% 
+      mutate(bio_reps_scrambled = scramble) %>% 
+      dplyr::select(new_sample_number, block, block_size,dplyr::contains("batch"), condition, block_condition_size, bio_replicate, bio_reps_scrambled, 1:ncol(.) )
+    
+    # Add seed_used column only if scramble is TRUE
+    if (scramble) {
+      df_new <- df_new %>%
+        mutate(seed_used = ifelse(!is.null(seed), as.character(seed), "12345"))
+    }
+    
+    return(df_new)
+  }, error = function(e) {
+    cat("\n")
+    cat("The following Error occurred in the block_randomiz function: \n")
+    cat("\n")
+    cat(conditionMessage(e), "\n")
+    cat("\n")
+    cat("Most likely, you have mis-spelled a column name in the arguments. \n")
+    cat("\n")
+    cat("In case of error around argument K needing to be bigger than 1, you will have to process all samples in one go. \n")
+    cat("If you don't want to do that, leave out the 'batch_col'argument.\n")
+    cat("However, doing so jeopordizes your entire future pipeline, because any prior batching of samples will not be accounted for. \n")
+    
+    return(NULL)
+  })
+}
+
+
+
+############################################################################
+############################################################################
+############################################################################
+#' Construct a PubMed Query String
+#'
+#' This function constructs a PubMed query string based on the provided
+#' publication date range and combinations of two sets of keywords.
+#'
+#' @param date_range A character vector of length 2 indicating the start and end publication years.
+#' @param keywords1 A character vector of the first set of keywords.
+#' @param keywords2 A character vector of the second set of keywords.
+#' @return A character string representing the PubMed query.
+#' @examples
+#' date_range <- c("2015", "2025")
+#' keywords1 <- c("kidney", "renal")
+#' keywords2 <- c("organoid", "spheroid", "tubuloid", "organ-on-a-chip", "microfluidic")
+#' query <- pubmed_query(date_range, keywords1, keywords2)
+#' cat(query)
+#' @export
+pubmed_query <- function(date_range, keywords1, keywords2) {
+  # Validate input
+  if (length(date_range) != 2) {
+    stop("date_range should be a vector of two elements (start and end year).")
+  }
+  if (!all(sapply(date_range, is.character))) {
+    stop("date_range should be a vector of characters.")
+  }
+  
+  # Construct date part
+  date_part <- paste0('("', date_range[1], '"[Publication Date] : "', date_range[2], '"[Publication Date])')
+  
+  # Construct keyword combinations
+  keyword_combinations <- unlist(lapply(keywords1, function(k1) {
+    sapply(keywords2, function(k2) {
+      paste0('("', k1, ' ', k2, '")')
+    })
+  }))
+  
+  # Combine keyword combinations with OR
+  keyword_part <- paste(keyword_combinations, collapse = " OR ")
+  
+  # Combine date part and keyword part
+  query <- paste0(date_part, " AND (", keyword_part, ")")
+  
+  return(query)
+}
+
+
+
+############################################################################
+############################################################################
+############################################################################
+#' Construct a Scopus Query String
+#'
+#' This function constructs a Scopus query string based on the provided
+#' publication date range and combinations of two sets of keywords.
+#'
+#' @param date_range A character vector of length 2 indicating the start and end publication years.
+#' @param keywords1 A character vector of the first set of keywords.
+#' @param keywords2 A character vector of the second set of keywords.
+#' @return A character string representing the Scopus query.
+#' @examples
+#' date_range <- c("2015", "2025")
+#' keywords1 <- c("kidney", "renal")
+#' keywords2 <- c("organoid", "spheroid", "tubuloid", "organ-on-chip", "microfluidic")
+#' query <- scopus_query(date_range, keywords1, keywords2)
+#' cat(query)
+#' @export
+scopus_query <- function(date_range, keywords1, keywords2) {
+  # Validate input
+  if (length(date_range) != 2) {
+    stop("date_range should be a vector of two elements (start and end year).")
+  }
+  if (!all(sapply(date_range, is.character))) {
+    stop("date_range should be a vector of characters.")
+  }
+  
+  # Construct date part
+  date_part <- paste0('PUBYEAR AFT ', date_range[1], ' AND PUBYEAR BEF ', date_range[2])
+  
+  # Construct keyword combinations
+  keyword_combinations <- unlist(lapply(keywords1, function(k1) {
+    sapply(keywords2, function(k2) {
+      paste0('TITLE-ABS-KEY("', k1, ' ', k2, '")')
+    })
+  }))
+  
+  # Combine keyword combinations with OR
+  keyword_part <- paste(keyword_combinations, collapse = " OR ")
+  
+  # Combine date part and keyword part
+  query <- paste0(date_part, " AND (", keyword_part, ")")
+  
+  return(query)
+}
+
+
+############################################################################
+############################################################################
+############################################################################
+#' Add statistical summaries to SummarizedExperiment
 #'
 #' This function calculates various statistical summaries for protein intensities
-#' in a SummarizedExperiment object. The user can specify which statistics to compute 
+#' in a SummarizedExperiment object. The user can specify which statistics to compute
 #' via the `type` argument, with the default being "all" to calculate all available statistics.
 #' The computed statistics are merged back into the `rowData` of the SummarizedExperiment object.
 #'
@@ -2550,7 +3283,7 @@ merge_se <- function(se = list(), keep_all = FALSE){
 #' @param type A character vector specifying which statistics to calculate. Options include:
 #'   \describe{
 #'     \item{"all"}{(default) calculates all available statistics (mean, sd, min, max, percentiles, IQR, counts).}
-#'     \item{Custom set of statistics, e.g. `c("mean", "sd", "min")`} selects only the specified statistics. Available options are: 
+#'     \item{Custom set of statistics, e.g. `c("mean", "sd", "min")`} selects only the specified statistics. Available options are:
 #'         \itemize{
 #'           \item "mean": Mean intensity
 #'           \item "sd": Standard deviation
@@ -2566,17 +3299,26 @@ merge_se <- function(se = list(), keep_all = FALSE){
 #'   }
 #'
 #' @return The updated `SummarizedExperiment` object with the selected statistics added to the `rowData`.
+#'
+#' @examples
+#' # Example usage with default (all statistics):
+#' updated_se <- add_stats(se)
+#'
+#' # Example usage to return only mean, sd, and min statistics:
+#' updated_se_selected <- add_stats(se, type = c("mean", "sd", "min"))
+#'
+#' # Example usage to calculate mean and missing_count only:
+#' updated_se_mean_missing <- add_stats(se, type = c("mean", "missing_count"))
+#'
 #' @export
-#' 
-#' @importFrom stats IQR sd quantile
-#' @import dplyr
-#' @importFrom SummarizedExperiment rowData
 add_stats <- function(se, type = "all") {
   # Extract data in long format from the SummarizedExperiment object
   df_long <- get_df_long(se)
+  
   # Convert all non-finite values (NaN, Inf, -Inf) to NA
   df_long <- df_long %>%
     mutate(intensity = ifelse(is.finite(intensity), intensity, NA))
+  
   # Define the list of possible statistics and their respective calculation methods with the is.na check
   stats_to_calculate <- list(
     mean_intensity = ~ ifelse(all(is.na(.x)), NA, mean(.x, na.rm = TRUE)),
@@ -2590,6 +3332,7 @@ add_stats <- function(se, type = "all") {
     missing_count = ~ sum(is.na(.x)),  # Count of NA values
     measured_count = ~ sum(!is.na(.x))  # Count of non-NA values
   )
+  
   # If type is "all", calculate all stats; otherwise, filter the stats to calculate
   if (type == "all") {
     selected_stats <- names(stats_to_calculate)
@@ -2598,6 +3341,7 @@ add_stats <- function(se, type = "all") {
     if ("missing_count" %in% type) selected_stats <- c(selected_stats, "missing_count")
     if ("measured_count" %in% type) selected_stats <- c(selected_stats, "measured_count")
   }
+  
   # Summarize the selected statistics
   df_summaries <- df_long %>%
     group_by(name, condition) %>%
@@ -2607,6 +3351,7 @@ add_stats <- function(se, type = "all") {
       .names = "{.fn}"
     )) %>%
     ungroup()
+  
   # Pivot the data to a wide format, appending suffixes to columns
   df_summaries_wide <- df_summaries %>%
     tidyr::pivot_wider(
@@ -2614,16 +3359,552 @@ add_stats <- function(se, type = "all") {
       values_from = selected_stats,
       names_glue = "{condition}_{.value}"  # Automatically create column names with suffixes
     )
+  
   # Arrange columns alphabetically (with 'name' as the first column)
   df_summaries_wide <- df_summaries_wide %>%
     dplyr::select(name, sort(colnames(df_summaries_wide)[-1]))  # Keep 'name' first
+  
   # Extract the existing rowData from the SummarizedExperiment object
   row_data <- rowData(se)
+  
   # Merge the new summary data into rowData
   row_data <- as.data.frame(row_data) %>%
     left_join(df_summaries_wide, by = "name")  # Merge by 'name' which is the protein identifier
+  
   # Update the rowData of the SummarizedExperiment object
   rowData(se) <- as(row_data, "DataFrame")  # Convert it back to a DataFrame
+  
   # Return the updated SummarizedExperiment object
   return(se)
 }
+
+############################################################################
+############################################################################
+############################################################################
+#' Create SummarizedExperiment object from Spectronaut reports
+#'
+#' This function processes Spectronaut reports and returns a SummarizedExperiment object. 
+#' It allows for optional transformations like collapsing extra underscores in the 
+#' condition column and converting condition values to lowercase.
+#'
+#' @param candidates Character or dataframe. Path to the candidates file or a dataframe.
+#' @param report Character or dataframe. Path to the Spectronaut report file or a dataframe.
+#' @param contrasts Character vector. Optional. Specify contrasts for differential analysis. 
+#' If NULL, default diff calculations will be used.
+#' @param conditionSetup Character or dataframe. Path to the condition setup file or a dataframe.
+#' @param quant_col Character. Column name indicating the quantity column. Default is "log2quantity".
+#' @param suggest_contrasts Logical. If TRUE, the function will suggest possible contrasts based on conditions. Default is TRUE.
+#' @param collapse_conditions Logical. If TRUE, extra underscores in the condition column are collapsed to the minimum number of underscores. Default is FALSE.
+#' @param cond_tolower Logical. If TRUE, the condition column is converted to lowercase. Default is FALSE.
+#'
+#' @return A SummarizedExperiment object containing the processed data.
+#'
+#' @details 
+#' The function processes Spectronaut reports, condition setups, and contrasts (if provided) 
+#' to create a SummarizedExperiment object for downstream analysis. It allows for condition-specific 
+#' transformations such as collapsing underscores and converting conditions to lowercase.
+#' 
+#' If `collapse_conditions` is TRUE, any extra underscores in the condition column will be collapsed 
+#' to the minimum number of underscores found in the column.
+#' 
+#' If `cond_tolower` is TRUE, the values in the condition column will be converted to lowercase.
+#'
+#' @examples
+#' # Example with custom arguments
+#' se <- spectronaut_to_se(candidates = "path_to_candidates.txt", 
+#'                         report = "path_to_report.txt", 
+#'                         conditionSetup = "path_to_conditions.txt", 
+#'                         quant_col = "log2quantity", 
+#'                         collapse_conditions = TRUE, 
+#'                         cond_tolower = TRUE)
+#'                         
+#' # Example with defaults
+#' se <- spectronaut_to_se()
+#'
+#' @export
+optimized_spectronaut_to_se <- function(candidates = NULL, report = NULL, contrasts = NULL, 
+                              conditionSetup = NULL, quant_col = "log2quantity", 
+                              suggest_contrasts = TRUE, collapse_conditions = FALSE, 
+                              conditions_tolower = FALSE) {
+  
+  # Check if candidates data is provided and load if necessary
+  if (!is.null(candidates)) {
+    if (typeof(candidates) == "character") {
+      df_candidates <- vroom::vroom(candidates, delim = "\t", col_names = TRUE, 
+                                    guess_max = 30000, .name_repair = janitor::make_clean_names) %>% 
+        dplyr::rename_all(tolower) %>% 
+        janitor::clean_names() %>% 
+        dplyr::rename_all(~ gsub("pg_", "", .)) %>% 
+        dplyr::rename_all(~ gsub("^r_", "", .)) %>%  # Remove 'r_' only at the start of string
+        dplyr::mutate(across(where(is.numeric), ~ replace(.x, !is.finite(.x), NA)))  # Replace NaN, -Inf, Inf with NA
+    } else {
+      df_candidates <- candidates
+    }
+  } else {
+    df_candidates <- NULL
+  }
+  
+  # Load and clean report data if it's a file path
+  if (typeof(report) == "character") {
+    df_wide_report <- vroom(report, delim = "\t", col_names = TRUE, 
+                            guess_max = 30000, .name_repair = janitor::make_clean_names) %>% 
+      dplyr::rename_all(tolower) %>% 
+      janitor::clean_names() %>% 
+      dplyr::rename_all(~ gsub("pg_", "", .)) %>% 
+      dplyr::rename_all(~ gsub("^r_", "", .)) %>%  # Remove 'r_' only at the start of string
+      dplyr::rename_all(~ gsub("x[0-9]*_", "", .)) %>%  # Remove "x" followed by numbers
+      dplyr::mutate(across(where(is.numeric), ~ replace(.x, !is.finite(.x), NA)))  # Replace NaN, -Inf, Inf with NA
+  } else {
+    df_wide_report <- report
+  }
+  
+  # Load and clean condition setup data if it's a file path
+  if (typeof(conditionSetup) == "character") {
+    coldata <- vroom(conditionSetup, delim = "\t", col_names = TRUE, 
+                     guess_max = 30000, .name_repair = janitor::make_clean_names) %>% 
+      dplyr::rename_all(tolower) %>% 
+      janitor::clean_names() %>% 
+      dplyr::select(run_label, condition, replicate, file_name) %>%
+      mutate(condition = gsub("[^[:alnum:]]", "_", condition)) %>% 
+      dplyr::rename(label = run_label) %>% 
+      dplyr::mutate(label = paste0(janitor::make_clean_names(label), "_", quant_col)) %>% 
+      dplyr::mutate(across(where(is.numeric), ~ replace(.x, !is.finite(.x), NA))) %>%  # Replace NaN, -Inf, Inf with NA
+      dplyr::mutate(renamingcol = sub("^x", "", label)) %>% 
+      dplyr::mutate(renamingcol = gsub("_raw_log2quantity$", "", renamingcol)) %>% 
+      dplyr::mutate(condition_rep = paste0(condition, "_rep", replicate))
+  } else {
+    coldata <- conditionSetup
+  }
+  
+  # If conditions_tolower is TRUE, convert the condition column to lowercase
+  if (conditions_tolower) {
+    coldata <- coldata %>%
+      dplyr::mutate(condition = tolower(condition))
+  }
+  
+  # If collapse_conditions is TRUE, collapse underscores in the condition column
+  if (collapse_conditions) {
+    # Find the minimum number of underscores in the condition column
+    min_underscores <- min(str_count(coldata$condition, "_"))
+    
+    # Collapse extra underscores to match the minimum number
+    coldata <- coldata %>%
+      dplyr::mutate(
+        condition = ifelse(
+          stringr::str_count(condition, "_") > min_underscores,
+          stringr::str_replace(condition, "(.*)_(.*)", "\\1\\2"), 
+          condition
+        )
+      )
+  }
+  
+  # Suggest possible contrasts using expand.grid based on unique conditions
+  if (suggest_contrasts) {
+    unique_conditions <- coldata %>% dplyr::distinct(condition) %>% dplyr::pull(condition)
+    possible_contrasts <- expand.grid(condition_num = unique_conditions, 
+                                      condition_den = unique_conditions) %>%
+      dplyr::filter(condition_num != condition_den) %>%
+      dplyr::mutate(contrast = paste0(condition_num, "_vs_", condition_den)) %>%
+      dplyr::arrange(contrast) %>% 
+      dplyr::pull(contrast)
+    
+    # Print possible contrasts to the console
+    message("Possible contrasts based on conditions in the condition setup:")
+    message(paste(possible_contrasts, collapse = "\n"))
+  }
+  
+  # If candidates is not NULL, process contrasts or use default diff calculations
+  if (!is.null(df_candidates)) {
+    if (!is.null(contrasts)) {
+      df_candidates_new <- data.frame()
+      for (con in contrasts) {
+        condition_num <- strsplit(con, "_vs_")[[1]][1]
+        condition_den <- strsplit(con, "_vs_")[[1]][2]
+        temp <- df_candidates %>% 
+          dplyr::filter(condition_numerator == condition_num & condition_denominator == condition_den) %>% 
+          dplyr::mutate(diff = avg_log2_ratio, contrast = con)
+        temp2 <- df_candidates %>% 
+          dplyr::filter(condition_numerator == condition_den & condition_denominator == condition_num) %>% 
+          dplyr::mutate(diff = -1 * avg_log2_ratio, contrast = con)
+        df_candidates_new <- dplyr::bind_rows(df_candidates_new, temp, temp2)
+      }
+    } else {
+      df_candidates_new <- df_candidates %>% 
+        mutate(diff = avg_log2_ratio, contrast = paste0(condition_numerator, "_vs_", condition_denominator))
+    }
+    
+    # Prepare the candidates data
+    df_candidates_new <- df_candidates_new %>% 
+      dplyr::rename(p.val = pvalue, p.adj = qvalue) %>% 
+      dplyr::select(diff, contrast, p.val, p.adj, protein_groups) %>% 
+      tidyr::pivot_wider(names_from = "contrast", values_from = c("diff", "p.val", "p.adj"), names_glue = "{contrast}_{.value}")
+  } else {
+    # If no candidates are provided, create an empty placeholder
+    df_candidates_new <- data.frame(protein_groups = unique(df_wide_report$protein_groups))
+  }
+  
+  # Merge candidates with the report data
+  combined <- df_candidates_new %>%
+    dplyr::right_join(df_wide_report, by = "protein_groups") %>% 
+    DEP2::make_unique("genes", "protein_groups", delim = ";") %>% 
+    dplyr::mutate(gene_names = genes, protein_ids = protein_groups)
+  
+  # Update column names based on condition setup
+  for (i in 1:nrow(coldata)) {
+    current_prefix <- coldata$renamingcol[i]  # The prefix you want to replace
+    new_prefix <- coldata$condition_rep[i]    # The new prefix
+    
+    # Replace the exact prefix only in the columns that match it fully
+    colnames(combined) <- str_replace(colnames(combined), 
+                                      paste0("^", current_prefix, "(?=_|$)"), 
+                                      new_prefix)
+  }
+  
+  # Adjust labels in coldata
+  coldata <- coldata %>% 
+    dplyr::mutate(old_label = label) %>% 
+    dplyr::mutate(label = paste0(condition_rep, "_raw_", quant_col))
+  
+  # Create the SummarizedExperiment object
+  se <- DEP2::make_se(combined, grep(paste0(".*_", quant_col), colnames(combined)), coldata, log2transform = ifelse(quant_col == "log2quantity", FALSE, TRUE))
+  
+  # Add 'sample' column for compatibility with SEV filtering functions
+  colData(se)$sample <- colData(se)$ID
+  
+  # Return the SE object
+  return(se)
+}
+
+
+
+#########
+#' Subset a Dataframe Based on Conditions, Contrasts, and Additional Columns
+#'
+#' This function subsets a dataframe by selecting specified condition columns, contrast columns, 
+#' and optionally extra columns. It also supports selecting summary intensity columns for conditions, 
+#' and ensures that the intensity summary columns are selected in a specific order.
+#'
+#' @param df A dataframe from which to subset.
+#' @param id_col A string specifying the name of the ID column. Default is "name".
+#' @param condition_list A character vector of conditions. Columns matching these conditions followed by numbers 
+#'   will be selected.
+#' @param contrast_list A character vector of contrasts. Columns starting with these contrasts will be selected.
+#' @param get_summaries A logical value indicating whether to include summary intensity columns for the specified conditions.
+#'   The intensity summary columns include mean, standard deviation, min, max, quartiles, IQR, missing counts, and measured counts.
+#'   Default is TRUE.
+#' @param extra_cols A character vector of additional column names to include in the subset. The columns must exist in the dataframe.
+#'   Default is NULL, meaning no extra columns will be selected.
+#'
+#' @return A dataframe containing the selected columns in the following order: ID column, extra columns (if specified), 
+#'   condition columns (including intensity summary columns if `get_summaries` is TRUE in the specified order), and contrast columns.
+#'
+#' @examples
+#' # Example dataframe
+#' df <- data.frame(
+#'   name = c("A", "B", "C"),
+#'   cond1_1 = c(1, 2, 3),
+#'   cond1_mean_intensity = c(10, 20, 30),
+#'   contrastA_1 = c(100, 200, 300),
+#'   col2 = c("X", "Y", "Z")
+#' )
+#'
+#' # Subset the dataframe with conditions and contrasts
+#' colab_subset_df(df, id_col = "name", condition_list = c("cond1"), contrast_list = c("contrastA"), extra_cols = c("col2"))
+#'
+#' @export
+colab_subset_df <- function(df, id_col = "name", condition_list, contrast_list, get_summaries = TRUE, extra_cols = NULL) {
+  
+  # Define intensity suffixes to look for in condition columns if get_summaries is TRUE
+  intensity_suffixes <- c("mean_intensity", "sd_intensity", "min_intensity", 
+                          "max_intensity", "p25_intensity", "p50_intensity", 
+                          "p75_intensity", "iqr_intensity", "missing_count", 
+                          "measured_count")
+  
+  # Create a pattern for condition columns: match the condition followed by any number at the end
+  condition_cols <- unlist(lapply(condition_list, function(cond) {
+    grep(paste0("^", cond, "_[0-9]+$"), names(df), value = TRUE)
+  }))
+  
+  # Optionally add any columns that start with the condition and end with one of the intensity suffixes
+  if (get_summaries) {
+    intensity_cols <- unlist(lapply(condition_list, function(cond) {
+      unlist(lapply(intensity_suffixes, function(suffix) {
+        grep(paste0("^", cond, "_", suffix, "$"), names(df), value = TRUE)
+      }))
+    }))
+    all_condition_cols <- c(condition_cols, intensity_cols)
+  } else {
+    all_condition_cols <- condition_cols
+  }
+  
+  # Create a pattern for contrast columns: match columns starting with contrast strings
+  contrast_cols <- unlist(lapply(contrast_list, function(contrast) {
+    grep(paste0("^", contrast), names(df), value = TRUE)
+  }))
+  
+  # Check if extra_cols is provided and exists in the dataframe
+  if (!is.null(extra_cols)) {
+    extra_cols <- extra_cols[extra_cols %in% names(df)]  # Only keep valid column names
+  } else {
+    extra_cols <- character(0)  # Empty vector if extra_cols is NULL
+  }
+  
+  # Select columns in the desired order: first 'id_col', then extra_cols, then condition columns (including intensity if selected in the correct order), and finally contrast columns
+  df_subset <- df %>%
+    dplyr::select(all_of(id_col), all_of(extra_cols), all_of(all_condition_cols), all_of(contrast_cols))
+  
+  # Return the subsetted dataframe
+  return(df_subset)
+}
+
+
+############
+#' Volcano plot with targets and significant genes
+#'
+#' This function creates a volcano plot based on the input summarized experiment (SE) object, highlighting significant genes and specific target genes.
+#'
+#' @param se A SummarizedExperiment object containing the gene expression data.
+#' @param contrast A string specifying the contrast or comparison of interest. This should match the column prefixes for p-values, adjusted p-values, and fold changes in `rowData(se)`.
+#' @param id_col A string specifying the column in `rowData(se)` that contains gene IDs or names. Defaults to "gene_names".
+#' @param target_names A character vector of target gene names to be highlighted. Defaults to an empty vector.
+#' @param label_sign A logical value indicating whether significant genes should be labeled on the plot. Defaults to TRUE.
+#' @param label_targets A logical value indicating whether target genes should be labeled on the plot. Defaults to TRUE.
+#' @param max.overlaps Maximum number of label overlaps allowed for `ggrepel`. Defaults to 15.
+#' @param labelsize Numeric value for the text size of labels. Defaults to 2.
+#'
+#' @return A ggplot2 object representing the volcano plot.
+#' 
+#' @details
+#' The volcano plot shows the log2 fold changes on the x-axis and the -log10 p-values on the y-axis. Significant genes and target genes are highlighted with different colors and shapes. Optionally, labels can be added for significant and target genes using `ggrepel`.
+#'
+#' @examples
+#' # Example usage:
+#' # volcano_plot <- lars_volcano(se, contrast = "condition_A_vs_B", target_names = c("gene1", "gene2"))
+#' # print(volcano_plot)
+#'
+#' @export
+lars_volcano <- function(se, contrast, id_col = "gene_names", target_names = c(""), 
+                         label_sign = TRUE, label_targets = TRUE, max.overlaps = 15, labelsize = 2) 
+{
+  pval <- paste0(contrast, "_p.val")
+  padj <- paste0(contrast, "_p.adj")
+  diff <- paste0(contrast, "_diff")
+  sign <- paste0(contrast, "_significant")
+  plot_data <- rowData(se) %>%
+    as.data.frame() %>%
+    dplyr::select(all_of(c(id_col, "name")), starts_with(contrast)) %>%
+    mutate(target_gene = factor(ifelse(!!sym(id_col) %in% target_names, "Target", "Non-Target"),
+                                levels = c("Non-Target", "Target"))) %>%
+    mutate(sign = !!sym(sign)) %>%
+    mutate(target_sign = factor(ifelse(!!sym(id_col) %in% target_names, "Target", 
+                                       ifelse(!!sym(sign) == TRUE, "Significant", "None")),
+                                levels = c("None", "Significant", "Target"))) %>%
+    mutate(alpha = ifelse(target_sign == "None", "None", "goi")) %>%
+    arrange(target_gene, sign)
+  p1 <- ggplot(plot_data, aes_string(x = diff, y = paste0("-log10(", pval, ")"))) +
+    geom_point(aes(fill = target_sign, alpha = alpha, shape = sign), 
+               size = 1.5, stroke = 0.1, show.legend = TRUE) + 
+    scale_fill_manual(values = c(Significant = "#F8756D", 
+                                 Target = "#7570b3", None = "grey90"), drop = FALSE) + 
+    scale_shape_manual(values = c(`FALSE` = 21, `TRUE` = 23), drop = FALSE) + 
+    scale_alpha_manual(values = c(None = 0.2, goi = 0.7), drop = FALSE) + 
+    guides(alpha = FALSE, fill = guide_legend(override.aes = list(shape = 21, size = 2)), 
+           shape = guide_legend(override.aes = list(size = 2))) + 
+    labs(title = contrast, fill = "Targets", shape = "Significant", 
+         x = "Log2(Fold Change)", y = "-Log10(P-value)") + 
+    theme_bw()
+  # Labels for significant genes
+  if (label_sign) {
+    p1 <- p1 + geom_text_repel(data = subset(plot_data, sign), aes(label = name), 
+                               size = labelsize, color = "black", 
+                               min.segment.length = 0, max.overlaps = max.overlaps,
+                               segment.size = 0.2, 
+                               box.padding = 0.3,  # Adds padding between points and labels
+                               point.padding = 0.3,  # Padding between point and label
+                               bg.color = "white", # White background for text
+                               bg.r = 0.15)  # Border radius around the label
+  }
+  # Labels for target genes
+  if (label_targets) {
+    p1 <- p1 + geom_label_repel(data = subset(plot_data, target_gene == "Target"), 
+                                aes(label = name), size = labelsize, color = "#7570b3", 
+                                min.segment.length = 0, max.overlaps = max.overlaps,
+                                segment.size = 0.2, 
+                                box.padding = 0.3,  # Adds padding between points and labels
+                                point.padding = 0.3,  # Padding between point and label
+                                bg.color = "#7570b3",  # White background for label
+                                bg.r = 0.15)  # Border radius around the label
+  }
+  return(p1)
+}
+
+
+######
+#' Convert Log2 Differences to Fold Change in SummarizedExperiment Object
+#'
+#' This function takes a SummarizedExperiment object and adds new columns containing fold-changes. 
+#' The function looks for columns ending with "_diff" in the `rowData` slot and uses dplyr::mutate to 'unlog' them from log2 scale. 
+#' It preserves `NA` values in the input and returns a modified SummarizedExperiment object.
+#' The function also checks to ensure that the rowData of the summarizedExperiment object remains
+#' identical before and after the transformation, except for the newly created fold change columns.
+#' Upon success, it prints a confirmation message and lists the names of the newly added columns.
+#'
+#' @param se A SummarizedExperiment object. This object should contain 
+#'   rowData with columns that end with "_diff", representing log2 differences.
+#' @return A SummarizedExperiment object with the same structure, but with 
+#'   additional columns where log2 values are converted to fold change.
+#' @examples
+#' # Assuming `se` is a SummarizedExperiment object:
+#' # se <- log2fc_to_fc(se)
+#'
+#' @importFrom SummarizedExperiment rowData
+#' @importFrom dplyr mutate across
+#' @importFrom stats ifelse
+#' @importFrom digest digest
+#' @export
+log2fc_to_fc <- function(se) {
+  # Check if input is a SummarizedExperiment object
+  if (!inherits(se, "SummarizedExperiment")) {
+    stop("The input must be a SummarizedExperiment object.")
+  }
+  
+  # Extract rowData
+  rowdata_df <- as.data.frame(rowData(se))
+  
+  # Check if rowData is empty
+  if (nrow(rowdata_df) == 0) {
+    stop("rowData is empty. The SummarizedExperiment object must contain data in rowData.")
+  }
+  
+  # Check if any columns end with '_diff'
+  diff_cols <- grep('_diff$', colnames(rowdata_df))
+  if (length(diff_cols) == 0) {
+    stop("No columns ending with '_diff' found in rowData.")
+  }
+  
+  # Store a digest (hash) of the original rowData before modifications
+  original_rowdata_hash <- digest::digest(rowdata_df, algo = "sha256")
+  
+  # Perform mutation: convert log2 to fold change, while handling NA values
+  rowdata_df <- rowdata_df %>%
+    mutate(across(ends_with('_diff'), 
+                  ~ ifelse(is.na(.x), NA, 2^.x),  # Convert log2 to fold change and keep NA
+                  .names = "{col}_foldchange"))
+  
+  # Capture the names of the newly created columns
+  new_foldchange_cols <- grep('_foldchange$', colnames(rowdata_df), value = TRUE)
+  
+  # Remove '_diff' from the newly created columns' names
+  colnames(rowdata_df) <- sub('_diff_foldchange$', '_foldchange', colnames(rowdata_df))
+  
+  # Reassign the mutated rowData back to the SummarizedExperiment object
+  rowData(se) <- rowdata_df
+  
+  # Check that the object is identical apart from the newly created columns
+  modified_rowdata_hash <- digest::digest(rowdata_df[ , !grepl('_foldchange$', colnames(rowdata_df))], algo = "sha256")
+  
+  if (original_rowdata_hash != modified_rowdata_hash) {
+    stop("The SummarizedExperiment object has been modified in a way other than adding fold change columns.")
+  }
+  
+  # If successful, print confirmation and list newly added columns
+  message("The RowData of the SummarizedExperiment object is identical apart from the newly added columns.")
+  message("Newly added columns: ", paste(new_foldchange_cols, collapse = ", "))
+  
+  # Return the updated SummarizedExperiment object
+  return(se)
+}
+
+#####
+library(SummarizedExperiment)
+library(dplyr)
+
+#' Modify rowData or colData of a SummarizedExperiment object
+#'
+#' @param se A SummarizedExperiment object.
+#' @param datatype A character string specifying whether to modify "rowData" or "colData". Must be one of "rowData" or "colData".
+#' @param modify_function A function to apply to the selected data (e.g., dplyr functions like mutate or left_join).
+#' @param ... Additional arguments passed to the modify_function.
+#'
+#' @return A modified SummarizedExperiment object with updated rowData or colData.
+#'
+#' @examples
+#' se <- SummarizedExperiment(assays = list(counts = matrix(1:12, nrow = 3)))
+#' colData(se) <- DataFrame(sample = c("S1", "S2", "S3"))
+#' rowData(se) <- DataFrame(name = c("gene1", "gene2", "gene3"))
+#'
+#' # Modify colData by adding a new column
+#' se <- se_modify(se, "colData", mutate, new_col = c("A", "B", "C"))
+#'
+#' # Modify rowData by adding a new column
+#' se <- se_modify(se, "rowData", mutate, new_col = c(10, 20, 30))
+#'
+#' # Example that would trigger an error by scrambling 'sample' column in colData
+#' try(se <- se_modify(se, "colData", mutate, sample = sample(sample)))
+#'
+#' # Example that would trigger an error by scrambling 'name' column in rowData
+#' try(se <- se_modify(se, "rowData", mutate, name = sample(name)))
+#'
+#' @import SummarizedExperiment
+#' @import dplyr
+#' @export
+se_modify <- function(se, datatype = c("rowData", "colData"), modify_function, ...) {
+  # Ensure datatype is either 'rowData' or 'colData'
+  datatype <- match.arg(datatype)
+  
+  # Extract the relevant data (either rowData or colData)
+  data <- if (datatype == "rowData") {
+    as.data.frame(rowData(se))
+  } else {
+    as.data.frame(colData(se))
+  }
+  
+  # Store original rownames for safety checks
+  original_rownames <- rownames(data)
+  
+  # Store additional column check depending on datatype
+  if (datatype == "rowData") {
+    original_name_column <- data$name
+  } else {
+    original_sample_column <- data$sample
+  }
+  
+  # Apply the specified function to the data
+  modified_data <- modify_function(data, ...)
+  
+  # Safety checks for colData
+  if (datatype == "colData") {
+    # Check if rownames are still in the same order
+    if (!identical(original_rownames, rownames(modified_data))) {
+      stop("Error: The rownames of colData have changed. Ensure that the operation preserves rownames.")
+    }
+    
+    # Check if rownames match the 'sample' column
+    if (!all(original_rownames == modified_data$sample)) {
+      stop("Error: The rownames of colData do not match the 'sample' column after modification.")
+    }
+  }
+  
+  # Safety checks for rowData
+  if (datatype == "rowData") {
+    # Check if rownames are still in the same order
+    if (!identical(original_rownames, rownames(modified_data))) {
+      stop("Error: The rownames of rowData have changed. Ensure that the operation preserves rownames.")
+    }
+    
+    # Check if rownames match the 'name' column
+    if (!all(original_rownames == modified_data$name)) {
+      stop("Error: The rownames of rowData do not match the 'name' column after modification.")
+    }
+  }
+  
+  # Assign the modified data back to the appropriate slot in SummarizedExperiment
+  if (datatype == "rowData") {
+    rowData(se) <- DataFrame(modified_data)
+  } else {
+    colData(se) <- DataFrame(modified_data)
+  }
+  
+  return(se)
+}
+

@@ -1,44 +1,12 @@
 Package: sev
-Title: SummarizedExperiment viewer
-Version: 0.1
+Title: What the Package Does (One Line, Title Case)
+Version: 0.0.0.9000
 Authors@R: 
-    person("Arvid", "Hutzfeldt", , "a.hutzfeldt@uke.de", role = c("aut", "cre"))
-Description: Adds on the iSEE and DEP2 package
-License: `use_mit_license()`
+    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: What the package does (one paragraph).
+License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
+    license
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
-Depends: 
-    iSEE,
-    iSEEu,
-    DEP2,
-    ggplot2,
-    fdrtool, 
-    dplyr,
-    MSnbase
-Imports: 
-    clusterProfiler,
-    HybridMTest,
-    janitor,
-    splitstackshape,
-    ggraph,
-    cowplot,
-    igraph,
-    rbioapi,
-    PhosR,
-    gdata,
-    cmapR,
-    ggpubr,
-    ggrepel,
-    patchwork
-Suggests: knitr, rmarkdown
-VignetteBuilder: knitr
-Remotes: 
-    bioc::iSEE, 
-    bioc::iSEEu,
-    mildpiggy/DEP2,
-    bioc::clusterProfiler,
-    bioc::HybridMTest,
-    bioc::PhosR,
-    bioc::cmapR,
-    bioc::MSnbase

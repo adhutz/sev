@@ -3880,9 +3880,9 @@ se_modify <- function(se, datatype = c("rowData", "colData"), modify_function, .
   
   # Assign the modified data back to the appropriate slot in SummarizedExperiment
   if (datatype == "rowData") {
-    rowData(se) <- DataFrame(modified_data)
+    rowData(se) <- S4Vectors::DataFrame(modified_data)
   } else {
-    colData(se) <- DataFrame(modified_data)
+    colData(se) <- S4Vectors::DataFrame(modified_data)
   }
   
   return(se)

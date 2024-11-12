@@ -3759,7 +3759,6 @@ lars_volcano <- function(se, contrast, id_col = "gene_names", target_names = c("
 #'
 #' @importFrom SummarizedExperiment rowData
 #' @importFrom dplyr mutate across
-#' @importFrom stats ifelse
 #' @importFrom digest digest
 #' @export
 log2fc_to_fc <- function(se) {

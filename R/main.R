@@ -3539,7 +3539,7 @@ optimized_spectronaut_to_se <- function(candidates = NULL, report = NULL, contra
     new_prefix <- coldata$condition_rep[i]    # The new prefix
     
     # Replace the exact prefix only in the columns that match it fully
-    colnames(combined) <- str_replace(colnames(combined), 
+    colnames(combined) <- stringr::str_replace(colnames(combined), 
                                       paste0("^", current_prefix, "(?=_|$)"), 
                                       new_prefix)
   }

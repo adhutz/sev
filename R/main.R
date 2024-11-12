@@ -61,7 +61,7 @@ filter_perseus<-function(se, perc_na = 0.33, filter_mode = "each_group"){
 
       # 1. Step: create long table with groups
 
-      data_long <- get_df_long(se)
+      data_long <- DEP2::get_df_long(se)
 
       # 2. Step: Apply filtering
 
@@ -2569,11 +2569,11 @@ merge_se <- function(se = list(), keep_all = FALSE){
 plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, min_diff = 1, min_intensity = 10, max.overlaps = 40, targets = data.frame(name = character(0), target = character(0))){
   
   ctrl <- gsub(".*_vs_(.*)$","\\1", contrast)
-  ctrl_mean <- paste0("mean_", ctrl)
+  ctrl_mean <- paste0(ctrl, "_mean_intensity")
   
   test_condition <- gsub("(.*)_vs_.*","\\1", contrast)
   
-  if(!paste0("mean_", ctrl) %in% colnames(rowData(se))){
+  if(!paste0(ctrl, "_mean_intensity", ) %in% colnames(rowData(se))){
     se <- sev::add_stats(se, type = "mean")
     message(paste0("No mean for ctrl condition found. Mean for\"", ctrl, "\" was calculated via sev::add_stats(). This value is not retained in the se object."))
   }
@@ -2744,7 +2744,7 @@ plot_overlap  <- function(df = temp_df, samples = NULL, condition = "MGN_ag_neg"
 plot_antigen_missing <- function(se, test_condition = "lcm_igan", ctrl_condition = "lcm_ctrl", 
                                  quantile = 0.1, perc_low_ctrl = 80, targets = data.frame(name = character(0), target = character(0))){
   
-  df_long <- get_df_long(se[, se$condition %in% c(test_condition, ctrl_condition)]) %>% select(name, condition, intensity, label, replicate)
+  df_long <- DEP2::get_df_long(se[, se$condition %in% c(test_condition, ctrl_condition)]) %>% select(name, condition, intensity, label, replicate)
   n_ctrl <- sum(se$condition == ctrl_condition)
   n_test <- sum(se$condition == test_condition)
   
@@ -3297,7 +3297,7 @@ scopus_query <- function(date_range, keywords1, keywords2) {
 #' @export
 add_stats <- function(se, type = "all") {
   # Extract data in long format from the SummarizedExperiment object
-  df_long <- get_df_long(se)
+  df_long <- DEP2::get_df_long(se)
   
   # Convert all non-finite values (NaN, Inf, -Inf) to NA
   df_long <- df_long %>%
@@ -3430,7 +3430,7 @@ optimized_spectronaut_to_se <- function(candidates = NULL, report = NULL, contra
   
   # Load and clean report data if it's a file path
   if (typeof(report) == "character") {
-    df_wide_report <- vroom(report, delim = "\t", col_names = TRUE, 
+    df_wide_report <- vroom::vroom(report, delim = "\t", col_names = TRUE, 
                             guess_max = 30000, .name_repair = janitor::make_clean_names) %>% 
       dplyr::rename_all(tolower) %>% 
       janitor::clean_names() %>% 
@@ -3444,7 +3444,7 @@ optimized_spectronaut_to_se <- function(candidates = NULL, report = NULL, contra
   
   # Load and clean condition setup data if it's a file path
   if (typeof(conditionSetup) == "character") {
-    coldata <- vroom(conditionSetup, delim = "\t", col_names = TRUE, 
+    coldata <- vroom::vroom(conditionSetup, delim = "\t", col_names = TRUE, 
                      guess_max = 30000, .name_repair = janitor::make_clean_names) %>% 
       dplyr::rename_all(tolower) %>% 
       janitor::clean_names() %>% 

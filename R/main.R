@@ -3081,22 +3081,6 @@ get_df_wide_append_assay <- function(se, assays = NULL) {
 #' @export
 
 block_randomize <- function(df, batch_col = "batch", condition_col = "condition", bio_replicate_col = "bio_replicate", scramble = TRUE, seed = NULL) {
-  
-  # Load required packages
-  if (!requireNamespace("dplyr", quietly = TRUE)) {
-    install.packages("dplyr")
-  }
-  if (!requireNamespace("janitor", quietly = TRUE)) {
-    install.packages("janitor")
-  }
-  if (!requireNamespace("anticlust", quietly = TRUE)) {
-    install.packages("anticlust")
-  }
-  
-  library(dplyr)
-  library(janitor)
-  library(anticlust)
-  
   # If batch_col is left empty, create a new 'batch' column with all 1s as values to indicate it is a single batch.
   # If batch_col is left empty, any pre-existing column called 'batch' is renamed to 'user_provided_batch'. (This is to ensure it is not overwritten or discarded)
   if (missing(batch_col) || batch_col == "") {
@@ -3815,9 +3799,6 @@ log2fc_to_fc <- function(se) {
 }
 
 #####
-library(SummarizedExperiment)
-library(dplyr)
-
 #' Modify rowData or colData of a SummarizedExperiment object
 #'
 #' @param se A SummarizedExperiment object.

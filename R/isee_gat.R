@@ -1,4 +1,4 @@
-
+library(iSEE)
 setClass("GeneAnnoTable", contains="RowDataTable",
          slots=c(
            IDColumn="character_OR_NULL",

@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{add_stats}
 \alias{add_stats}
-\title{Add statistical summaries for all conditions to SummarizedExperiment}
+\title{Add statistical summaries to SummarizedExperiment}
 \usage{
 add_stats(se, type = "all")
 }
@@ -35,4 +35,15 @@ This function calculates various statistical summaries for protein intensities
 in a SummarizedExperiment object. The user can specify which statistics to compute
 via the \code{type} argument, with the default being "all" to calculate all available statistics.
 The computed statistics are merged back into the \code{rowData} of the SummarizedExperiment object.
+}
+\examples{
+# Example usage with default (all statistics):
+updated_se <- add_stats(se)
+
+# Example usage to return only mean, sd, and min statistics:
+updated_se_selected <- add_stats(se, type = c("mean", "sd", "min"))
+
+# Example usage to calculate mean and missing_count only:
+updated_se_mean_missing <- add_stats(se, type = c("mean", "missing_count"))
+
 }

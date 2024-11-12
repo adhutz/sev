@@ -2568,14 +2568,14 @@ merge_se <- function(se = list(), keep_all = FALSE){
 #' @export
 plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, min_diff = 1, min_intensity = 10, max.overlaps = 40, targets = data.frame(name = character(0), target = character(0))){
   
-  ctrl <- gsub(".*_vs_(.*)$","\\1", contrast)
-  ctrl_mean <- paste0(ctrl, "_mean_intensity")
+  ctrl_condition <- gsub(".*_vs_(.*)$","\\1", contrast)
+  ctrl_mean <- paste0(ctrl_condition, "_mean_intensity")
   
   test_condition <- gsub("(.*)_vs_.*","\\1", contrast)
   
-  if(!paste0(ctrl, "_mean_intensity", ) %in% colnames(rowData(se))){
+  if(!ctrl_mean %in% colnames(rowData(se))){
     se <- sev::add_stats(se, type = "mean")
-    message(paste0("No mean for ctrl condition found. Mean for\"", ctrl, "\" was calculated via sev::add_stats(). This value is not retained in the se object."))
+    message(paste0("No mean for ctrl condition found. Mean for\"", ctrl_condition, "\" was calculated via sev::add_stats(). This value is not retained in the se object."))
   }
   
   if(additional_sets == "all"){
@@ -2604,10 +2604,15 @@ plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, 
   
   test_samples <- grep(paste0("^", test_condition, "_[0-9]*$"), colnames(temp_df), value = TRUE)
   
-  p_individuals <- lapply(test_samples, function(x) plot_indiviuals(temp_df, paste0("diff_", x) ,x,  min_diff, min_intensity, max.overlaps = max.overlaps, ctrl = ctrl, scaled = scale)) 
+  p_individuals <- lapply(test_samples, function(x) {
+    plot_indiviuals(df = temp_df, x = paste0("diff_", x), y = x, 
+                    cut_x = min_diff, cut_y = min_intensity, 
+                    max.overlaps = max.overlaps, ctrl_condition = ctrl_condition, 
+                    scaled = scale)
+    }) 
   
-  p_overlaps <- plot_overlap(temp_df, samples = grep(paste0("^", sets, "_[0-9]*$", collapse = "|"), colnames(temp_df), value = TRUE), 
-                             ctrl, targets = targets, scaled = scale)
+  p_overlaps <- plot_overlap(df = temp_df, test_condition = test_condition, ctrl_condition = ctrl_condition, 
+                             targets = targets, scaled = scale)
   
   p <- patchwork::wrap_plots(p_individuals, ncol = 2) / p_overlaps + 
     patchwork::plot_annotation(title = contrast) + patchwork::plot_layout(heights = c(1, 0.8))
@@ -2637,13 +2642,13 @@ plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, 
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_manual labs
 #' @importFrom dplyr filter
 #' @importFrom ggrepel geom_text_repel
-plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl = "ctrl", scaled = FALSE){
+plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl_condition = "ctrl", scaled = FALSE){
   
   df <- df %>% filter(!is.na(!!sym(x)) & !is.na(!!sym(y)))
   p <- df %>% ggplot(aes(x = !!sym(x), y = !!sym(y), color = ifelse(!!sym(x) >= cut_x & !!sym(y) > cut_y, "TRUE", "FALSE"))) +
     geom_point(alpha = 0.5) +
     scale_color_manual(values = c("TRUE" = "darkorange", "FALSE" = "darkgrey")) +
-    labs(color = "Above Thresholds", y = paste0(ifelse(scaled, "Scaled ", ""), "Intensity (", y, ")"), x = paste0(y, " - mean(", ctrl, ")")) +
+    labs(color = "Above Thresholds", y = paste0(ifelse(scaled, "Scaled ", ""), "Intensity (", y, ")"), x = paste0(y, " - mean(", ctrl_condition, ")")) +
     geom_text_repel(data = filter(df, !!sym(x) >= cut_x & !!sym(y) >= cut_y), aes(label = name), max.overlaps = max.overlaps) +
     my_theme()
   return(p)
@@ -2656,8 +2661,8 @@ plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl = "c
 #'
 #' @param df A data frame containing the processed data, with columns representing sample intensities and differences. Defaults to `temp_df`.
 #' @param samples A character vector specifying which sample columns to include. If `NULL`, samples matching the condition pattern are selected automatically.
-#' @param condition A string specifying the condition name used for filtering and plotting. Defaults to `"MGN_ag_neg"`.
-#' @param ctrl A string representing the control condition name, used for labeling the plot. Defaults to `"ctrl"`.
+#' @param test_condition A string specifying the condition name used for filtering and plotting. Defaults to `"MGN_ag_neg"`.
+#' @param ctrl_condition A string representing the control condition name, used for labeling the plot. Defaults to `"ctrl"`.
 #' @param targets A data frame with `name` and `target` columns for highlighting specific targets. Defaults to an empty data frame.
 #' @param scaled A logical value indicating whether the y-axis should be labeled as scaled. Defaults to `FALSE`.
 #'
@@ -2672,24 +2677,24 @@ plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl = "c
 #' @importFrom tidyr pivot_longer pivot_wider
 #' @importFrom ggplot2 ggplot aes geom_point scale_fill_discrete labs facet_wrap scale_fill_viridis_d
 #' @importFrom ggrepel geom_text_repel
-plot_overlap  <- function(df = temp_df, samples = NULL, condition = "MGN_ag_neg", ctrl = "ctrl", targets = data.frame(name = character(0), target = character(0)), scaled = FALSE){ 
+plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_condition = "ctrl", targets = data.frame(name = character(0), target = character(0)), scaled = FALSE, samples = NULL){ 
   if(is.null(samples)){
-    samples <- grep(paste0("^", condition, "_[1-9]*$"), colnames(df), value = TRUE)
+    samples <- grep(paste0("^", test_condition, "_[1-9]*$"), colnames(df), value = TRUE)
   }
   
   
   df_sum <- df %>% dplyr::rename_with(.cols = all_of(samples), ~ gsub("(.*)", "intensity_\\1", .x)) %>% 
     select(name, grep(paste0(samples, collapse = "|"), colnames(.), value = TRUE)) %>%
-    tidyr::pivot_longer(-c(name), names_to = c("type", "patient"), values_to = "intensity", names_pattern = "(.*?)_(.*)") %>% 
+    tidyr::pivot_longer(-c(name), names_to = c("type", "id"), values_to = "intensity", names_pattern = "(.*?)_(.*)") %>% 
     tidyr::pivot_wider(names_from = "type", values_from = "intensity") %>%
     filter(diff >= 0 & intensity >= 0.5) %>% 
     group_by(name) %>% 
-    summarize(n = factor(n(), levels = 1:length(test_samples)), 
+    summarize(n = factor(n(), levels = 1:length(samples)), 
               diff = mean(diff, na.rm = TRUE), 
-              patient = paste0(gsub(".*_(.*)", "\\1",patient), collapse = ", "), 
+              id = paste0(gsub(".*_(.*)", "\\1", id), collapse = ", "), 
               mean_intensity = mean(intensity, na.rm = TRUE)) %>% filter(n != 0)
   
-  sample = paste0(".*", condition, "_[1-9]*$")
+  sample = paste0(".*", test_condition, "_[1-9]*$")
   
   df_sum <- df_sum %>% dplyr::left_join(targets, by = "name") 
   
@@ -2698,18 +2703,18 @@ plot_overlap  <- function(df = temp_df, samples = NULL, condition = "MGN_ag_neg"
       geom_point(shape = 21, size = 3, alpha = 0.8)+
       scale_fill_discrete(na.value = "grey90") +
       ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = 0) +
-      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", patient)), min.segment.length = 0) +
+      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = 0) +
       facet_wrap(.~n, scales = "free") +
-      labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(condition, "vs", ctrl)) +
+      labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(test_condition, "vs", ctrl_condition)) +
       my_theme() 
   } else {
     p_summary <- df_sum %>% ggplot(aes(x = diff, y = mean_intensity, fill = n))+
       geom_point(shape = 21, size = 3, alpha = 0.8)+
       scale_fill_viridis_d(option = "inferno", end = 0.8) +
       ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = 0) +
-      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", patient)), min.segment.length = 0) +
+      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = 0) +
       facet_wrap(.~n, scales = "free") +
-      labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(condition, "vs", ctrl)) +
+      labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(test_condition, "vs", ctrl_condition)) +
       my_theme()   
   }
   

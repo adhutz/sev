@@ -2551,6 +2551,7 @@ merge_se <- function(se = list(), keep_all = FALSE){
 #' @param min_intensity A numeric value specifying the minimum intensity for data points to be considered. Defaults to `10`. If scaled is set to TRUE, this needs to be changed to a lower value. 
 #' @param max.overlaps A numeric value indicating the maximum number of label overlaps allowed in the plot. Defaults to `40`.
 #' @param targets A data frame containing `name` and `target` columns, specifying target proteins or features of interest. Defaults to an empty data frame.
+#' @param min.segment.length Minimum segment length for labels
 #'
 #' @return A combined plot displaying individual and overlapping data points for the specified contrast.
 #' @details The function processes the `SummarizedExperiment` data to calculate the mean of control samples and the differences between test samples and control means. It generates individual plots for test samples and an overlap plot for the specified conditions.
@@ -2566,7 +2567,7 @@ merge_se <- function(se = list(), keep_all = FALSE){
 #' @importFrom tidyr pivot_longer pivot_wider
 #' @importFrom patchwork wrap_plots plot_annotation plot_layout
 #' @export
-plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, min_diff = 1, min_intensity = 10, max.overlaps = 40, targets = data.frame(name = character(0), target = character(0))){
+plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, min_diff = 1, min_intensity = 10, max.overlaps = 40, targets = data.frame(name = character(0), target = character(0), min.segment.length = 0)){
   
   ctrl_condition <- gsub(".*_vs_(.*)$","\\1", contrast)
   ctrl_mean <- paste0(ctrl_condition, "_mean_intensity")
@@ -2608,11 +2609,11 @@ plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, 
     plot_indiviuals(df = temp_df, x = paste0("diff_", x), y = x, 
                     cut_x = min_diff, cut_y = min_intensity, 
                     max.overlaps = max.overlaps, ctrl_condition = ctrl_condition, 
-                    scaled = scale)
+                    scaled = scale, min.segment.length = min.segment.length)
     }) 
   
-  p_overlaps <- plot_overlap(df = temp_df, test_condition = test_condition, ctrl_condition = ctrl_condition, 
-                             targets = targets, scaled = scale)
+  p_overlaps <- plot_overlap(df = temp_df, test_condition = test_condition, ctrl_condition = ctrl_condition, min_diff = min_diff, min_intensity = min_intensity, 
+                             targets = targets, scaled = scale, min.segment.length = min.segment.length)
   
   p <- patchwork::wrap_plots(p_individuals, ncol = 2) / p_overlaps + 
     patchwork::plot_annotation(title = contrast) + patchwork::plot_layout(heights = c(1, 0.8))
@@ -2631,7 +2632,8 @@ plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, 
 #' @param max.overlaps A numeric value indicating the maximum number of overlapping labels for the text. Defaults to `10`.
 #' @param ctrl A string specifying the control condition name, used for labeling the plot. Defaults to `"ctrl"`.
 #' @param scaled A logical value indicating whether the y-axis should be labeled as scaled. Defaults to `FALSE`.
-#'
+#' @param min.segment.length Minimum length of segments for labels
+#' 
 #' @return A `ggplot2` object representing the scatter plot with points color-coded based on whether they meet the threshold criteria. Points above the threshold are labeled with their `name`.
 #' @details The function uses `ggplot2` to create a scatter plot where points are highlighted and labeled if they meet or exceed the specified `cut_x` and `cut_y` values. Labels for points are added using `geom_text_repel` to reduce overlap.
 #'
@@ -2642,14 +2644,14 @@ plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, 
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_manual labs
 #' @importFrom dplyr filter
 #' @importFrom ggrepel geom_text_repel
-plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl_condition = "ctrl", scaled = FALSE){
+plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl_condition = "ctrl", scaled = FALSE, min.segment.length = 0){
   
   df <- df %>% filter(!is.na(!!sym(x)) & !is.na(!!sym(y)))
   p <- df %>% ggplot(aes(x = !!sym(x), y = !!sym(y), color = ifelse(!!sym(x) >= cut_x & !!sym(y) > cut_y, "TRUE", "FALSE"))) +
     geom_point(alpha = 0.5) +
     scale_color_manual(values = c("TRUE" = "darkorange", "FALSE" = "darkgrey")) +
     labs(color = "Above Thresholds", y = paste0(ifelse(scaled, "Scaled ", ""), "Intensity (", y, ")"), x = paste0(y, " - mean(", ctrl_condition, ")")) +
-    geom_text_repel(data = filter(df, !!sym(x) >= cut_x & !!sym(y) >= cut_y), aes(label = name), max.overlaps = max.overlaps) +
+    geom_text_repel(data = filter(df, !!sym(x) >= cut_x & !!sym(y) >= cut_y), aes(label = name), max.overlaps = max.overlaps, min.segment.length = min.segment.length) +
     my_theme()
   return(p)
 }
@@ -2663,9 +2665,12 @@ plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl_cond
 #' @param samples A character vector specifying which sample columns to include. If `NULL`, samples matching the condition pattern are selected automatically.
 #' @param test_condition A string specifying the condition name used for filtering and plotting. Defaults to `"MGN_ag_neg"`.
 #' @param ctrl_condition A string representing the control condition name, used for labeling the plot. Defaults to `"ctrl"`.
+#' @param min_diff A numeric value specifying the minimum difference required for data points to be considered. Defaults to `0`.
+#' @param min_intensity A numeric value specifying the minimum intensity for data points to be considered. Defaults to `1`.
 #' @param targets A data frame with `name` and `target` columns for highlighting specific targets. Defaults to an empty data frame.
 #' @param scaled A logical value indicating whether the y-axis should be labeled as scaled. Defaults to `FALSE`.
-#'
+#' @param min.segment.length A numeric value specifying the minimum segment length for the text labels. Defaults to `0`.
+#' 
 #' @return A `ggplot2` object representing a scatter plot that shows antigen overlap based on mean differences and intensities, with options for customized labeling and color coding.
 #' @details The function processes input data to compute summaries for each antigen and plots them based on the number of samples in which they are detected. Points can be color-coded by target if provided, and labeled to show individual antigens and patients.
 #'
@@ -2677,17 +2682,16 @@ plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl_cond
 #' @importFrom tidyr pivot_longer pivot_wider
 #' @importFrom ggplot2 ggplot aes geom_point scale_fill_discrete labs facet_wrap scale_fill_viridis_d
 #' @importFrom ggrepel geom_text_repel
-plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_condition = "ctrl", targets = data.frame(name = character(0), target = character(0)), scaled = FALSE, samples = NULL){ 
+plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_condition = "ctrl", min_diff = 0, min_intensity = 1, targets = data.frame(name = character(0), target = character(0)), scaled = FALSE, samples = NULL, min.segment.length=0){ 
   if(is.null(samples)){
     samples <- grep(paste0("^", test_condition, "_[1-9]*$"), colnames(df), value = TRUE)
   }
-  
-  
+
   df_sum <- df %>% dplyr::rename_with(.cols = all_of(samples), ~ gsub("(.*)", "intensity_\\1", .x)) %>% 
     select(name, grep(paste0(samples, collapse = "|"), colnames(.), value = TRUE)) %>%
     tidyr::pivot_longer(-c(name), names_to = c("type", "id"), values_to = "intensity", names_pattern = "(.*?)_(.*)") %>% 
     tidyr::pivot_wider(names_from = "type", values_from = "intensity") %>%
-    filter(diff >= 0 & intensity >= 0.5) %>% 
+    filter(diff >= min_diff & intensity >= min_intensity) %>% 
     group_by(name) %>% 
     summarize(n = factor(n(), levels = 1:length(samples)), 
               diff = mean(diff, na.rm = TRUE), 
@@ -2702,8 +2706,8 @@ plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_cond
     p_summary <- df_sum %>% ggplot(aes(x = diff, y = mean_intensity, fill = target))+
       geom_point(shape = 21, size = 3, alpha = 0.8)+
       scale_fill_discrete(na.value = "grey90") +
-      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = 0) +
-      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = 0) +
+      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = min.segment.length) +
+      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = min.segment.length) +
       facet_wrap(.~n, scales = "free") +
       labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(test_condition, "vs", ctrl_condition)) +
       my_theme() 
@@ -2711,8 +2715,8 @@ plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_cond
     p_summary <- df_sum %>% ggplot(aes(x = diff, y = mean_intensity, fill = n))+
       geom_point(shape = 21, size = 3, alpha = 0.8)+
       scale_fill_viridis_d(option = "inferno", end = 0.8) +
-      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = 0) +
-      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = 0) +
+      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = min.segment.length) +
+      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = min.segment.length) +
       facet_wrap(.~n, scales = "free") +
       labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(test_condition, "vs", ctrl_condition)) +
       my_theme()   

@@ -2613,7 +2613,7 @@ plot_antigen <- function(se, contrast, additional_sets = "none", scale = FALSE, 
     }) 
   
   p_overlaps <- plot_overlap(df = temp_df, test_condition = test_condition, ctrl_condition = ctrl_condition, min_diff = min_diff, min_intensity = min_intensity, 
-                             targets = targets, scaled = scale, min.segment.length = min.segment.length)
+                             targets = targets, scaled = scale, min.segment.length = min.segment.length, max.overlaps = max.overlaps)
   
   p <- patchwork::wrap_plots(p_individuals, ncol = 2) / p_overlaps + 
     patchwork::plot_annotation(title = contrast) + patchwork::plot_layout(heights = c(1, 0.8))
@@ -2670,6 +2670,7 @@ plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl_cond
 #' @param targets A data frame with `name` and `target` columns for highlighting specific targets. Defaults to an empty data frame.
 #' @param scaled A logical value indicating whether the y-axis should be labeled as scaled. Defaults to `FALSE`.
 #' @param min.segment.length A numeric value specifying the minimum segment length for the text labels. Defaults to `0`.
+#' @param max.overlaps A numeric value indicating the maximum number of overlapping labels for the text. Defaults to `10`.
 #' 
 #' @return A `ggplot2` object representing a scatter plot that shows antigen overlap based on mean differences and intensities, with options for customized labeling and color coding.
 #' @details The function processes input data to compute summaries for each antigen and plots them based on the number of samples in which they are detected. Points can be color-coded by target if provided, and labeled to show individual antigens and patients.
@@ -2682,7 +2683,7 @@ plot_indiviuals <- function(df, x, y, cut_x, cut_y, max.overlaps = 10, ctrl_cond
 #' @importFrom tidyr pivot_longer pivot_wider
 #' @importFrom ggplot2 ggplot aes geom_point scale_fill_discrete labs facet_wrap scale_fill_viridis_d
 #' @importFrom ggrepel geom_text_repel
-plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_condition = "ctrl", min_diff = 0, min_intensity = 1, targets = data.frame(name = character(0), target = character(0)), scaled = FALSE, samples = NULL, min.segment.length=0){ 
+plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_condition = "ctrl", min_diff = 0, min_intensity = 1, targets = data.frame(name = character(0), target = character(0)), scaled = FALSE, samples = NULL, min.segment.length=0, max.overlaps = 10){ 
   if(is.null(samples)){
     samples <- grep(paste0("^", test_condition, "_[1-9]*$"), colnames(df), value = TRUE)
   }
@@ -2706,8 +2707,8 @@ plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_cond
     p_summary <- df_sum %>% ggplot(aes(x = diff, y = mean_intensity, fill = target))+
       geom_point(shape = 21, size = 3, alpha = 0.8)+
       scale_fill_discrete(na.value = "grey90") +
-      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = min.segment.length) +
-      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = min.segment.length) +
+      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = min.segment.length, max.overlaps = max.overlaps) +
+      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = min.segment.length, max.overlaps = max.overlaps) +
       facet_wrap(.~n, scales = "free") +
       labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(test_condition, "vs", ctrl_condition)) +
       my_theme() 
@@ -2715,8 +2716,8 @@ plot_overlap  <- function(df = temp_df, test_condition = "MGN_ag_neg", ctrl_cond
     p_summary <- df_sum %>% ggplot(aes(x = diff, y = mean_intensity, fill = n))+
       geom_point(shape = 21, size = 3, alpha = 0.8)+
       scale_fill_viridis_d(option = "inferno", end = 0.8) +
-      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = min.segment.length) +
-      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = min.segment.length) +
+      ggrepel::geom_text_repel(data = filter(df_sum, !n ==1 & !n == 2), aes(label = name), min.segment.length = min.segment.length, max.overlaps = max.overlaps) +
+      ggrepel::geom_text_repel(data = filter(df_sum, n == 1 | n == 2), aes(label = paste0(name, " | ", id)), min.segment.length = min.segment.length, max.overlaps = max.overlaps) +
       facet_wrap(.~n, scales = "free") +
       labs(y = paste0("Mean(", ifelse(scaled, "Scaled ", ""), "Intensity)"), x = "Mean(Diff)", title = paste0(test_condition, "vs", ctrl_condition)) +
       my_theme()   
